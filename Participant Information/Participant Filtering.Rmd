@@ -1,0 +1,60 @@
+---
+title: "Participant Filtering"
+author: "Micah E. Hirsch"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Document Purpose
+
+The purpose of this document is to filter out the participants to be included in this sensor effects project from the larger study database. While we do not provide access to the raw participant inventory here, the script blocks below demonstrate how we identified participants to include in this analysis. The primary criteria we needed was audio recordings from before sensor placement, the conversational sample with sensors on, and recordings after sensors were removed. The resulting deidentified and filtered version of the participant list in .csv format is provided in this folder.
+
+```{r, echo = F, warning = F, message = F}
+
+library(rio)
+
+all_speakers <-rio::import("File Inventories.xlsx")
+
+```
+
+# Filter Participants
+
+The master participant list was already uploaded to this Rmd file. This next block shows the process for filtering participants.
+
+```{r, warning = F, message = F}
+
+# Loading Needed Packages
+library(tidyverse)
+
+speakers_final <- all_speakers %>%
+  # selecting needed variables
+  dplyr::select(c("Sub #", "Group", "Sex", "Age", "Caterpillar (No Sensors)", "Caterpillar (Conversational)", "Caterpillar (End, No Sensors)")) %>%
+  # filtering out participants who do not have all three recordings
+  dplyr::filter_at(vars("Caterpillar (No Sensors)", 
+                        "Caterpillar (Conversational)", "Caterpillar (End, No Sensors)"),
+                   all_vars(!is.na(.))) %>%
+  # Sub21 does not have audio files, so we removed them here too
+  dplyr::filter(Age != "*") %>%
+  # Sub49 and Sub55 have two recorded files. So we are filtering out their duplicate record
+  dplyr::filter(`Sub #` != "Sub49" & `Sub #` != "Sub55*")
+
+# As of 6/5/23, there are two additional participants that need to be included (Sub61 and Sub62). However, their file information has not been uploaded to the master participant inventory yet. So the code below creates a separate df for those two participants. Then the two dfs will be merged together. This is done mainly for participant count purposes.
+
+Sub_61_62 <- all_speakers %>%
+  dplyr::filter(`Sub #` == "Sub61" | `Sub #` == "Sub62")
+
+speakers_final <- speakers_final %>%
+  dplyr::full_join(., Sub_61_62)
+
+# Removing unneeded items from the environment
+
+rm(all_speakers, Sub_61_62)
+
+```
+
+
+
