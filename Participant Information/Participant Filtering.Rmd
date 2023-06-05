@@ -56,5 +56,21 @@ rm(all_speakers, Sub_61_62)
 
 ```
 
+# Export Final Participant List
+
+The following code block exports the final participant list. Please note: two versions of this was exported. The one shared publicly here does not contain the specific audio file names.
+
+```{r, warning = F, message = F}
+
+rio::export(speakers_final, "Sensor_Effects_Participants_Lab_Version.csv")
+
+shared_participants <- speakers_final %>%
+  dplyr::select(!c("Caterpillar (No Sensors)", 
+                   "Caterpillar (Conversational)", 
+                   "Caterpillar (End, No Sensors)"))
+
+rio::export(shared_participants, "participant_demographics.csv")
+
+```
 
 
