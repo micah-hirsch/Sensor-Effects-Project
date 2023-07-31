@@ -2,7 +2,9 @@
 title: "Participant Filtering"
 author: "Micah E. Hirsch"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+  html_document: 
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -23,36 +25,93 @@ all_speakers <-rio::import("File Inventories.xlsx")
 
 # Filter Participants
 
-The master participant list was already uploaded to this Rmd file. This next block shows the process for filtering participants.
+The master participant list was already uploaded to this Rmd file. We first identified the participants who have all three timepoint recordings from the larger Co-Articulation Database. Then, we filtered out participants based on their age (only including participants who are over 40 years old). The code block below shows a more detailed look at our filtering process.
 
 ```{r, warning = F, message = F}
 
 # Loading Needed Packages
 library(tidyverse)
+library(gt)
 
 speakers_final <- all_speakers %>%
   # selecting needed variables
-  dplyr::select(c("Sub #", "Group", "Sex", "Age", "Caterpillar (No Sensors)", "Caterpillar (Conversational)", "Caterpillar (End, No Sensors)")) %>%
+  dplyr::select(c(`Sub #` , Group, Sex, Age, `Caterpillar (No Sensors)`, `Caterpillar (Conversational)`, `Caterpillar (End, No Sensors)`)) %>%
   # filtering out participants who do not have all three recordings
-  dplyr::filter_at(vars("Caterpillar (No Sensors)", 
-                        "Caterpillar (Conversational)", "Caterpillar (End, No Sensors)"),
+  dplyr::filter_at(vars(`Caterpillar (No Sensors)`, 
+                        `Caterpillar (Conversational)`, `Caterpillar (End, No Sensors)`),
                    all_vars(!is.na(.))) %>%
   # Sub21 does not have audio files, so we removed them here too
   dplyr::filter(Age != "*") %>%
   # Sub49 and Sub55 have two recorded files. So we are filtering out their duplicate record
-  dplyr::filter(`Sub #` != "Sub49" & `Sub #` != "Sub55*")
+  dplyr::filter(`Sub #` != "Sub49" & `Sub #` != "Sub55*") %>%
+  # Now we only want to keep participants who are over 40 years old
+  dplyr::filter(Age >= 40) %>%
+  # Making our age variable numeric 
+  dplyr::mutate(Age = as.numeric(Age))
 
-# As of 6/5/23, there are two additional participants that need to be included (Sub61 and Sub62). However, their file information has not been uploaded to the master participant inventory yet. So the code below creates a separate df for those two participants. Then the two dfs will be merged together. This is done mainly for participant count purposes.
+# As of 7/31/23, there are two participants (Sub61 and Sub62), who are also eligible to participate. However, their information has not been fully entered into our database yet. Therefore, we are creating a separate df with this participant information, then merging it back with the main df. This section of code will be removed once the database inventory file is updated.
 
-Sub_61_62 <- all_speakers %>%
-  dplyr::filter(`Sub #` == "Sub61" | `Sub #` == "Sub62")
+sub_61_62 <- all_speakers %>%
+  dplyr::filter(`Sub #` == "Sub61" | `Sub #` == "Sub62") %>%
+  dplyr::mutate(Age = as.numeric(Age))
 
 speakers_final <- speakers_final %>%
-  dplyr::full_join(., Sub_61_62)
+  dplyr::full_join(sub_61_62)
 
 # Removing unneeded items from the environment
 
-rm(all_speakers, Sub_61_62)
+rm(all_speakers, sub_61_62)
+
+```
+
+# Participant Descriptives
+
+In this next block of code, we calculated some basic descriptive information for our participants. First, we have participant breakdown by control vs. PD.
+
+```{r, warning = F, message = F}
+
+speakers_final %>%
+  dplyr::group_by(Group) %>%
+  dplyr::summarize(n = n(), age_mean = mean(Age, na.rm = T), age_sd = sd(Age, na.rm = T)) %>%
+  dplyr::ungroup() %>%
+  gt::gt() %>%
+  fmt_number(columns = "age_mean":"age_sd", decimals = 2) %>% 
+  tab_spanner(label = "Age",
+              columns = c(age_mean, age_sd)) %>%
+  cols_label(age_mean = "Mean",
+             age_sd = "SD")
+  
+
+```
+
+We also have the breakdown based on participant group (control and PD) and participant sex (male or female).
+
+```{r, warning = F, message = F}
+
+speakers_final %>%
+  dplyr::group_by(Group, Sex) %>%
+  dplyr::summarize(n = n(), age_mean = mean(Age, na.rm = T), age_sd = sd(Age, na.rm = T)) %>%
+  dplyr::ungroup() %>%
+  tidyr::pivot_longer(cols = n:age_sd,
+                      names_to = " ",
+                      values_to = "Value") %>%
+  dplyr::mutate(col = paste(Group, Sex, sep = " ")) %>%
+  dplyr::select(!c(Group,Sex)) %>%
+  tidyr::pivot_wider(names_from = col,
+                     values_from = Value) %>%
+  dplyr::mutate(` ` = recode(` `, "age_mean" = "Mean", "age_sd" = "SD")) %>%
+  gt() %>%
+  fmt_number(columns = "HC F":"PD M", decimals = 2) %>%
+  tab_spanner(label = "Control",
+              columns = c("HC F", "HC M")) %>%
+  tab_spanner(label = "PD",
+              columns = c("PD F", "PD M")) %>%
+  cols_label("HC F" = "Female",
+             "HC M" = "Male",
+             "PD F" = "Female",
+             "PD M" = "Male") %>%
+  tab_row_group(label = "Age", rows = ` ` == "Mean" | ` ` == "SD") %>%
+  row_group_order(groups = c(NA, "Age"))
 
 ```
 
