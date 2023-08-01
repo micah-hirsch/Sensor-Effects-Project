@@ -25,7 +25,7 @@ all_speakers <-rio::import("File Inventories.xlsx")
 
 # Filter Participants
 
-The master participant list was already uploaded to this Rmd file. We first identified the participants who have all three timepoint recordings from the larger Co-Articulation Database. Then, we filtered out participants based on their age (only including participants who are over 40 years old). The code block below shows a more detailed look at our filtering process.
+The master participant list was already uploaded to this Rmd file. We first identified the participants who have all three timepoint recordings from the larger Co-Articulation Database. Then, we filtered out participants based on their age (only including participants who are over 45 years old). The code block below shows a more detailed look at our filtering process.
 
 ```{r, warning = F, message = F}
 
@@ -44,8 +44,8 @@ speakers_final <- all_speakers %>%
   dplyr::filter(Age != "*") %>%
   # Sub49 and Sub55 have two recorded files. So we are filtering out their duplicate record
   dplyr::filter(`Sub #` != "Sub49" & `Sub #` != "Sub55*") %>%
-  # Now we only want to keep participants who are over 40 years old
-  dplyr::filter(Age >= 40) %>%
+  # Now we only want to keep participants who are over 45 years old
+  dplyr::filter(Age >= 45) %>%
   # Making our age variable numeric 
   dplyr::mutate(Age = as.numeric(Age))
 
