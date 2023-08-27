@@ -24,7 +24,7 @@ library(tidyverse)
 speakers <- rio::import("participant_demographics.csv") %>%
   dplyr::select(1:4) 
 
-# Filtering out participants who have not been segmented yet.
+## Filtering out participants who have not been segmented yet.
 speakers1 <- speakers %>%
   dplyr::filter(`Sub #` != "Sub40" & `Sub #` != "Sub43*"& `Sub #` != "Sub44") %>%
   dplyr::slice(1:14)
