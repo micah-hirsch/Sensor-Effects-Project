@@ -1,0 +1,54 @@
+---
+title: "MSC Analysis"
+author: "Micah E. Hirsch"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Purpose
+
+This script contains the preliminary data processing and analysis for the sensor effects project.The preliminary results presented here are for a proposal submitted to the 2024 Conference of Motor Speech.
+
+```{r}
+
+library(rio)
+library(tidyverse)
+
+# Loading in the data
+
+## Import Speaker information
+speakers <- rio::import("participant_demographics.csv") %>%
+  dplyr::select(1:4) 
+
+# Filtering out participants who have not been segmented yet.
+speakers1 <- speakers %>%
+  dplyr::filter(`Sub #` != "Sub40" & `Sub #` != "Sub43*"& `Sub #` != "Sub44") %>%
+  dplyr::slice(1:14)
+
+k <- 1
+while (k <= nrow(speakers1)) {
+  
+  speaker <- speakers1$`Sub #`[k]
+  file_path <- paste("Raw Data/", speaker, sep = "")
+  
+  segments <- list.files(path = file_path, 
+                         pattern = ".txt")
+  
+}
+
+
+```
+
+
+
+```{r}
+
+
+
+```
+
+
