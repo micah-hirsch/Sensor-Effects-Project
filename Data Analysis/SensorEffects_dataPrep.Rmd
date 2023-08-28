@@ -210,6 +210,8 @@ while (k < nrow(consonants)) {
                output = paste0(targetFile,".Spectrum"),
                filetype="binary",
                overwrite=TRUE)
+  
+  
 }
 
 
