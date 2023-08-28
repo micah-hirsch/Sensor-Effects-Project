@@ -1,0 +1,220 @@
+---
+title: "Sensor Effects: Data Prep"
+author: "Micah E. Hirsch & Austin Thompson"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Purpose
+
+This script contains the preliminary data processing and analysis for the sensor effects project.The preliminary results presented here are for a proposal submitted to the 2024 Conference of Motor Speech.
+
+# Packages
+```{r}
+library(rio)
+library(tidyverse)
+library(rPraat) # install.packages('rPraat')
+library(devtools) # install.packages('devtools')
+library(PraatR) # devtools:::install_github("usagi5886/PraatR")
+```
+
+# Loading in the data
+```{r}
+
+rawDataPath <- "/Users/austin/Dropbox/Work/Motor Speech Lab/Projects/Sensor Effects Project/Raw Data"
+
+## Segmented Data (i.e., Speakers that are completed)
+segmentedData <- list.files(
+  path = rawDataPath, # get the names of the completed speakers from the files
+  ) %>%
+  as.data.frame() %>%
+  dplyr::rename(SpeakerID = 1)
+
+## Import Speaker information
+speakers <- rio::import("participant_demographics.csv") %>%
+  dplyr::select(1:4) %>%
+  dplyr::rename(SpeakerID = 1) %>%
+  # Filter out participants who are not completed (do not have a folder in Dropbox)
+  dplyr::filter(
+    .$SpeakerID %in% segmentedData$SpeakerID
+  ) 
+rm(segmentedData)
+
+
+loadData <- function(path, speaker) {
+  
+  path_tp_info <- path %>%
+    as.data.frame() %>%
+    dplyr::rename(path = 1) %>%
+    dplyr::mutate(tp = case_when(
+      grepl(pattern = "before", ignore.case = T, path) ~ "before",
+      grepl(pattern = "after", ignore.case = T, path) ~ "after",
+      grepl(pattern = "sensor", ignore.case = T, path) ~ "sensors",
+    ))
+  
+   # Load the TextGrid
+  tg <- rPraat::tg.read(fileNameTextGrid = path,
+                          encoding = "UTF-8")
+  
+  Phrase <- cbind(tg[[1]][["label"]],tg[[1]][["t1"]], tg[[1]][["t2"]]) %>%
+    as.data.frame() %>%
+    dplyr::rename(
+      Segment = 1,
+      Onset = 2,
+      Offset = 3) %>%
+    dplyr::mutate(
+      Segment = gsub(pattern = " ",
+                     replacement = "",
+                     x = Segment),
+      Onset = as.numeric(Onset),
+      Offset = as.numeric(Offset)) %>%
+      dplyr::filter(Segment != "")
+  
+  Phoneme <- cbind(tg[[2]][["label"]],tg[[2]][["t1"]], tg[[2]][["t2"]]) %>%
+    as.data.frame() %>%
+    dplyr::rename(
+      Segment = 1,
+      Onset = 2,
+      Offset = 3) %>%
+    dplyr::mutate(
+      Segment = gsub(pattern = " ",
+                     replacement = "",
+                     x = Segment),
+      Onset = as.numeric(Onset),
+      Offset = as.numeric(Offset)) %>%
+    dplyr::filter(Segment != "")
+  
+  speakerSegments <- rbind(Phrase, Phoneme) %>%
+    dplyr::mutate(timePoint = path_tp_info$tp,
+                  path = path_tp_info$path)
+  
+  return(speakerSegments)
+  rm(Phrase, Phoneme)
+}
+
+
+k <- 1
+while (k <= nrow(speakers)) {
+  
+  speaker <- speakers$SpeakerID[k]
+  file_path <- paste(rawDataPath, speaker, sep = "/")
+
+  speakerFiles <- list.files(
+    path = paste0(file_path,"/")) %>%
+    as.data.frame() %>%
+    dplyr::rename(File = 1) %>%
+    dplyr::filter(grepl(
+      pattern = ".TextGrid",
+      x = File
+    )) %>%
+    dplyr::mutate(
+      path = paste(file_path, File, sep = "/")
+    )
+  
+  speakerSegments <- base::do.call(rbind,lapply(speakerFiles$path,loadData, speaker = speaker)) %>%
+    dplyr::mutate(SpeakerID = speaker)
+  
+  if (k == 1) {
+    Segments <- speakerSegments %>%
+      dplyr::relocate(SpeakerID, .before = "Segment")
+  } else {
+    Segments <- rbind(Segments, speakerSegments)
+  }
+  rm(speakerSegments)
+  
+  k <- k + 1
+}
+
+Segments <- Segments %>%
+  dplyr::mutate(
+    Segment = case_when(
+      Segment == "Phrase_3.2_9" ~ "Phrase3.2_9",
+      Segment == "Phase3.3_10" ~ "Phrase3.3_10",
+      TRUE ~ Segment)) %>%
+  base::merge(., speakers) %>%
+  dplyr::relocate(c(Group:Age,path, timePoint), .before = Segment) %>%
+  dplyr::select(!path)
+
+
+phrases <- Segments %>%
+  dplyr::filter(grepl(pattern = "phrase",
+                      ignore.case = T,
+                      x = Segment)) %>%
+  dplyr::mutate(
+    Phrase = case_when(
+      grepl(pattern = "Phrase1", x = Segment) ~ "Phrase 1",
+      grepl(pattern = "Phrase2", x = Segment) ~ "Phrase 2",
+      grepl(pattern = "Phrase3", x = Segment) ~ "Phrase 3",
+      ),
+    Syllables = sub(".*_", "", Segment),
+    Syllables = as.numeric(Syllables))
+
+phonemes <- Segments %>%
+    dplyr::filter(!grepl(pattern = "phrase",
+                      ignore.case = T,
+                      x = Segment))
+
+
+```
+
+# Loading in the audio recordings
+```{r}
+fileInventories <- rio::import(
+  file = "/Users/austin/Dropbox/Work/Databases/CoarticData/File Inventories.xlsx"
+) %>%
+  dplyr::rename(SpeakerID = 1) %>%
+  dplyr::filter(.$SpeakerID %in% speakers$SpeakerID) %>%
+  dplyr::select(SpeakerID,
+                `Folder #1`,
+                `Caterpillar (No Sensors)`,
+                `Folder 2`,
+                `Caterpillar (Conversational)`,
+                `Caterpillar (End, No Sensors)`) %>%
+  dplyr::mutate(
+    path = paste("/Users/austin/Dropbox/Work/Databases/CoarticData", SpeakerID, sep = "/"),
+    before = paste(path,`Folder #1`, `Caterpillar (No Sensors)`, sep = "/"),
+    sensors = paste(path, `Folder 2`, `Caterpillar (Conversational)`, sep = "/"),
+    after = paste(path, `Folder 2`, `Caterpillar (End, No Sensors)`, sep = "/"),
+  ) %>%
+  dplyr::select(SpeakerID, before, sensors, after) %>%
+  tidyr::pivot_longer(cols = c(before:after),
+                      names_to = "timePoint",
+                      values_to = "filePath")
+
+
+```
+
+
+```{r}
+consonants <- phonemes %>%
+  dplyr::filter(Segment == "sh" | Segment == "s") %>%
+  base::merge(., fileInventories)
+
+# Loop to generate the Spectrum
+k <- 1
+while (k < nrow(consonants)) {
+  
+  targetFile <- consonants %>%
+    dplyr::filter(row_number() == k) %>%
+    dplyr::select(filePath) %>%
+    as.character()
+  
+
+  PraatR::praat( "To Spectrum...",
+               arguments = list(TRUE),
+               input = paste0(targetFile,".wav"),
+               output = paste0(targetFile,".Spectrum"),
+               filetype="binary",
+               overwrite=TRUE)
+}
+
+
+
+
+```
+
+
