@@ -1,6 +1,6 @@
 ---
 title: "Sensor Effects: Data Prep"
-author: "Micah E. Hirsch & Austin Thompson"
+author: "Austin Thompson"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Purpose
 
-This script contains the preliminary data processing and analysis for the sensor effects project.The preliminary results presented here are for a proposal submitted to the 2024 Conference of Motor Speech.
+This script contains the preliminary data processing for the sensor effects project. The preliminary results presented here are for a proposal submitted to the 2024 Conference of Motor Speech.
 
 # Packages
 ```{r}
@@ -25,7 +25,8 @@ library(PraatR) # devtools:::install_github("usagi5886/PraatR")
 # Loading in the data
 ```{r}
 
-rawDataPath <- "/Users/austin/Dropbox/Work/Motor Speech Lab/Projects/Sensor Effects Project/Raw Data"
+rawDataPath <- "/Users/austinthompson/Library/CloudStorage/Dropbox/Work/Motor Speech Lab/Projects/Sensor Effects Project/Raw Data"
+databasePath <- "/Users/austinthompson/Library/CloudStorage/Dropbox/Work/Databases/CoarticData"
 
 ## Segmented Data (i.e., Speakers that are completed)
 segmentedData <- list.files(
@@ -64,28 +65,28 @@ loadData <- function(path, speaker) {
     as.data.frame() %>%
     dplyr::rename(
       Segment = 1,
-      Onset = 2,
-      Offset = 3) %>%
+      onset = 2,
+      offset = 3) %>%
     dplyr::mutate(
       Segment = gsub(pattern = " ",
                      replacement = "",
                      x = Segment),
-      Onset = as.numeric(Onset),
-      Offset = as.numeric(Offset)) %>%
+      onset = as.numeric(onset),
+      offset = as.numeric(offset)) %>%
       dplyr::filter(Segment != "")
   
   Phoneme <- cbind(tg[[2]][["label"]],tg[[2]][["t1"]], tg[[2]][["t2"]]) %>%
     as.data.frame() %>%
     dplyr::rename(
       Segment = 1,
-      Onset = 2,
-      Offset = 3) %>%
+      onset = 2,
+      offset = 3) %>%
     dplyr::mutate(
       Segment = gsub(pattern = " ",
                      replacement = "",
                      x = Segment),
-      Onset = as.numeric(Onset),
-      Offset = as.numeric(Offset)) %>%
+      onset = as.numeric(onset),
+      offset = as.numeric(offset)) %>%
     dplyr::filter(Segment != "")
   
   speakerSegments <- rbind(Phrase, Phoneme) %>%
@@ -164,7 +165,7 @@ phonemes <- Segments %>%
 # Loading in the audio recordings
 ```{r}
 fileInventories <- rio::import(
-  file = "/Users/austin/Dropbox/Work/Databases/CoarticData/File Inventories.xlsx"
+  file = paste(databasePath, "File Inventories.xlsx", sep = "/")
 ) %>%
   dplyr::rename(SpeakerID = 1) %>%
   dplyr::filter(.$SpeakerID %in% speakers$SpeakerID) %>%
@@ -175,7 +176,7 @@ fileInventories <- rio::import(
                 `Caterpillar (Conversational)`,
                 `Caterpillar (End, No Sensors)`) %>%
   dplyr::mutate(
-    path = paste("/Users/austin/Dropbox/Work/Databases/CoarticData", SpeakerID, sep = "/"),
+    path = paste(databasePath, SpeakerID, sep = "/"),
     before = paste(path,`Folder #1`, `Caterpillar (No Sensors)`, sep = "/"),
     sensors = paste(path, `Folder 2`, `Caterpillar (Conversational)`, sep = "/"),
     after = paste(path, `Folder 2`, `Caterpillar (End, No Sensors)`, sep = "/"),
@@ -188,35 +189,326 @@ fileInventories <- rio::import(
 
 ```
 
+# Calculating Measures
 
+## Consonant Measures
 ```{r}
 consonants <- phonemes %>%
   dplyr::filter(Segment == "sh" | Segment == "s") %>%
-  base::merge(., fileInventories)
+  base::merge(., fileInventories) %>%
+  dplyr::mutate(Row = dplyr::row_number())
 
-# Loop to generate the Spectrum
+# Loop to calculate M1 & M2
 k <- 1
-while (k < nrow(consonants)) {
+while (k <= nrow(consonants)) {
   
   targetFile <- consonants %>%
     dplyr::filter(row_number() == k) %>%
     dplyr::select(filePath) %>%
     as.character()
   
-
+  currentTarget <- consonants %>%
+    dplyr::mutate(onset = onset,
+                  offset = offset) %>%
+    slice(k)
+  
+  # Loading in the sound wav
+  sndWav <- rPraat::snd.read(paste0(targetFile, ".wav"))
+  
+  # Cutting the sound wav to be just the target
+  rPraat::snd.cut(sndWav,
+                Start = currentTarget$onset,
+                End = currentTarget$offset) %>%
+  rPraat::snd.write(.,paste0(targetFile,"_target.wav"))
+  
+  # Creating the current target.Spectrum
   PraatR::praat( "To Spectrum...",
-               arguments = list(TRUE),
-               input = paste0(targetFile,".wav"),
-               output = paste0(targetFile,".Spectrum"),
-               filetype="binary",
-               overwrite=TRUE)
+                 arguments = list(TRUE),
+                 input = paste0(targetFile,"_target.wav"),
+                 output = paste0(targetFile,"_target.Spectrum"),
+                 filetype="binary",
+                 overwrite=TRUE)
   
   
+consonants <- consonants %>%
+      filter(Row == k) %>%
+      dplyr::mutate(
+        M1 = PraatR::praat( "Get centre of gravity...",
+                            arguments = list(1),
+                            input = paste0(targetFile,"_target.Spectrum")) %>%
+                      str_replace(" hertz", "") %>%
+                      as.numeric() / 1000,
+        M2 = PraatR::praat( "Get standard deviation...",
+                            arguments = list(1),
+                            input = paste0(targetFile,"_target.Spectrum")) %>%
+                      str_replace(" hertz", "") %>%
+                      as.numeric() / 1000,
+        M1_p = PraatR::praat( "Get centre of gravity...",
+                            arguments = list(2),
+                            input = paste0(targetFile,"_target.Spectrum")) %>%
+                      str_replace(" hertz", "") %>%
+                      as.numeric() / 1000,
+        M2_p = PraatR::praat( "Get standard deviation...",
+                            arguments = list(2),
+                            input = paste0(targetFile,"_target.Spectrum")) %>%
+                      str_replace(" hertz", "") %>%
+                      as.numeric() / 1000) %>%
+      bind_rows(., consonants %>%
+                  filter(Row != k)) %>%
+      arrange(Row)
+
+# Cleaning up the folder
+file.remove(paste0(targetFile,"_target.wav"))
+file.remove(paste0(targetFile,"_target.Spectrum"))
+
+k <- k + 1
 }
 
+consonants <- consonants %>%
+  dplyr::select(!c(filePath, Row))
 
+dir.create(path = "Prepped Data",
+           showWarnings = F)
+rio::export(
+  x = consonants,
+  file = "Prepped Data/FinalMeasures_consonants.csv"
+)
+```
 
+## Vowel Measures
+```{r}
+vowels <- phonemes %>%
+  dplyr::filter(Segment != "sh") %>%
+  dplyr::filter(Segment != "s") %>%
+  base::merge(., fileInventories) %>%
+  dplyr::mutate(Row = dplyr::row_number(),
+                label = Segment,
+                vowel = gsub(
+                  pattern = "l",
+                  replacement = "",
+                  x = label
+                ))
+
+# Loop to calculate F1 & F2 at temporal midpoint
+k <- 1
+while (k <= nrow(vowels)) {
+  
+  targetFile <- vowels %>%
+    dplyr::filter(row_number() == k) %>%
+    dplyr::select(filePath) %>%
+    as.character()
+  
+  currentTarget <- vowels %>%
+    dplyr::mutate(onset = onset,
+                  offset = offset) %>%
+    slice(k)
+  
+  # Loading in the sound wav
+  sndWav <- rPraat::snd.read(paste0(targetFile, ".wav"))
+  
+  # Cutting the sound wav to be just the target
+  rPraat::snd.cut(sndWav,
+                Start = currentTarget$onset,
+                End = currentTarget$offset) %>%
+  rPraat::snd.write(.,paste0(targetFile,"_target.wav"))
+  
+  # Creating the current target.Formant
+  formantArg <- list(
+    .00,
+    5.0,
+    ifelse(currentTarget$Sex == "M", 5000, 5500),
+    0.025,
+    50
+  )
+  PraatR::praat( "To Formant (burg)...",
+                 arguments = formantArg,
+                 input = paste0(targetFile,"_target.wav"),
+                 output = paste0(targetFile,"_target.Formant"),
+                 filetype="text",
+                 overwrite=TRUE)
+  
+  formants <- rPraat::formant.read(
+    fileNameFormant = paste0(targetFile,"_target.Formant"),
+    encoding = "auto"
+    )
+  midFrame <- formant.getPointIndexNearestTime(formants,
+                                   time = (formants$xmax/2) + formants$xmin)
+  
+  midpoint <- formants$frame[[midFrame]][["frequency"]] %>%
+    as.data.frame() %>%
+    dplyr::rename(Formants = 1)
+  
+  F1_mid <- midpoint[1,]
+  F2_mid <- midpoint[2,]
+  
+vowels <- vowels %>%
+      filter(Row == k) %>%
+      dplyr::mutate(
+        F1 = as.numeric(F1_mid),
+        F2 = as.numeric(F2_mid)) %>%
+      bind_rows(., vowels %>%
+                  filter(Row != k)) %>%
+      arrange(Row)
+
+# Cleaning up the folder
+file.remove(paste0(targetFile,"_target.wav"))
+file.remove(paste0(targetFile,"_target.Formant"))
+
+k <- k + 1
+}
+
+vowels <- vowels %>%
+  dplyr::select(!c(filePath, Row))
+
+dir.create(path = "Prepped Data",
+           showWarnings = F)
+rio::export(
+  x = vowels,
+  file = "Prepped Data/FinalMeasures_vowels.csv"
+)
 
 ```
 
+## Prosody Measures
+```{r}
+articRate <- phrases %>%
+  dplyr::mutate(duration = offset - onset,
+                articRate = Syllables/duration)
+
+dir.create(path = "Prepped Data",
+           showWarnings = F)
+rio::export(
+  x = articRate,
+  file = "Prepped Data/FinalMeasures_articRate.csv"
+)
+```
+
+# Visualizations
+## Cosonnants
+```{r}
+plotData <- rio::import(
+  file = "Prepped Data/FinalMeasures_consonants.csv"
+)
+
+plotData %>%
+  dplyr::group_by(Group, timePoint, Segment) %>%
+  dplyr::summarise(M1 = mean(M1),
+                   M1_p = mean(M1_p),
+                   M2 = mean(M2),
+                   M2_p = mean(M2_p)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(timePoint = factor(timePoint, levels = c("before",
+                                                         "sensors",
+                                                         "after"))) %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = M1,
+      color = Group,
+      group = Group) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(x = "Timepoint") +
+  facet_wrap(~Segment) +
+  theme_classic()
+
+dir.create(
+  path = "Figures",
+  showWarnings = F
+)
+
+ggsave(
+  filename = "Figures/Results_consonants.png",
+  plot = last_plot(),
+  height = 4,
+  width = 6,
+  units = "in",
+  scale = 1
+)
+```
+
+## Vowels
+```{r}
+plotData <- rio::import(
+  file = "Prepped Data/FinalMeasures_vowels.csv"
+)
+
+plotData %>%
+  dplyr::group_by(Group, timePoint, vowel) %>%
+  dplyr::summarise(
+    F1 = mean(F1),
+    F2 = mean(F2),
+    ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(timePoint = factor(timePoint, levels = c("before",
+                                                         "sensors",
+                                                         "after"))) %>%
+  ggplot() +
+  aes(x = F2,
+      y = F1,
+      color = vowel,
+      group = Group,
+      shape = timePoint) +
+  #geom_line(color = "grey") +
+  geom_point() +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  facet_wrap(~Group) +
+  labs(shape = "Timepoint",
+       color = "Vowel") +
+  theme_classic()
+
+dir.create(
+  path = "Figures",
+  showWarnings = F
+)
+
+ggsave(
+  filename = "Figures/Results_vowels.png",
+  plot = last_plot(),
+  height = 4,
+  width = 6,
+  units = "in",
+  scale = 1
+)
+```
+
+## Artic Rate
+```{r}
+plotData <- rio::import(
+  file = "Prepped Data/FinalMeasures_articRate.csv"
+)
+
+plotData %>%
+  dplyr::group_by(Group, timePoint) %>%
+  dplyr::summarise(articRate = mean(articRate)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(timePoint = factor(timePoint, levels = c("before",
+                                                         "sensors",
+                                                         "after"))) %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = articRate,
+      color = Group,
+      group = Group) +
+  geom_line(color = "grey") +
+  geom_point() +
+  labs(x = "Timepoint",
+       y = "Articulation Rate (syl/s)") +
+  theme_classic()
+
+dir.create(
+  path = "Figures",
+  showWarnings = F
+)
+
+ggsave(
+  filename = "Figures/Results_articRate.png",
+  plot = last_plot(),
+  height = 4,
+  width = 6,
+  units = "in",
+  scale = 1
+)
+
+```
 
