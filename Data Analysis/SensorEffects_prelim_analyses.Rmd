@@ -18,6 +18,7 @@ The purpose of this document is to conduct preliminary analyses for the Sensor E
 library(rio)
 library(tidyverse)
 library(geometry)
+library(ggpubr)
 
 artic_rate_df <- rio::import("Prepped Data/FinalMeasures_articRate.csv")
 consonants_df <- rio::import("Prepped Data/FinalMeasures_consonants.csv")
@@ -292,6 +293,18 @@ M2_ratio_plot <- M2_ratio_des %>%
 M2_ratio_plot
 
 ggsave("Figures/M2_ratio.png", plot = last_plot())
+
+```
+
+# MSC Plot
+
+```{r}
+
+msc_plot <- ggarrange(M1_plot, plot_VSA, ncol = 1, nrow = 2)
+
+msc_plot
+
+ggsave("msc_plot.png", plot = last_plot(), width = 7, height = 10, units = "in", scale = 0.7)
 
 ```
 
