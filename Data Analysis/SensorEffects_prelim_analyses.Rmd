@@ -1,0 +1,187 @@
+---
+title: "Sensor_Effects_Preliminary_Analysis"
+author: "Micah E. Hirsch"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Purpose
+
+The purpose of this document is to conduct preliminary analyses for the Sensor Effects project. The primary analyses conducted here are descriptive statistics and data visualizations.
+
+```{r}
+
+library(rio)
+library(tidyverse)
+
+artic_rate_df <- rio::import("Prepped Data/FinalMeasures_articRate.csv")
+consonants_df <- rio::import("Prepped Data/FinalMeasures_consonants.csv")
+vowels_df <- rio::import("Prepped Data/FinalMeasures_vowels.csv")
+
+```
+
+# Descriptive Statistics
+
+## Participant Demographics by Group
+
+```{r}
+
+participants <- artic_rate_df %>%
+  dplyr::select(SpeakerID, Group, Sex, Age) %>%
+  dplyr::distinct()
+
+participants %>%
+  dplyr::group_by(Group, Sex) %>%
+  dplyr::summarize(Age = mean(Age))
+
+```
+
+
+## Overall Participant Demographics
+
+```{r}
+
+participants %>%
+  dplyr::summarize(mean_age = mean(Age), sd = sd(Age), 
+                   min_age = min(Age), max = max(Age))
+
+```
+
+## Articulation Rate
+
+```{r}
+
+artic_descriptives <- artic_rate_df %>%
+  dplyr::group_by(SpeakerID, timePoint) %>%
+  dplyr::summarize(articRate = sum(Syllables)/sum(duration)) %>%
+  dplyr::left_join(participants, by = "SpeakerID")
+
+overall_articRate <- artic_descriptives %>%
+  dplyr::mutate(timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::group_by(Group, timePoint) %>%
+  dplyr::summarize(artic_rate = mean(articRate), sd = sd(articRate), se = sd/sqrt(n())) %>%
+  dplyr::ungroup()
+
+artic_rate_plot <- overall_articRate %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = artic_rate,
+      color = Group,
+      group = Group) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin = artic_rate - se, ymax = artic_rate + se)) +
+  labs(x = "Time Point",
+       y = "Articulation Rate (syl/s)") +
+  theme_classic()
+  
+  
+artic_rate_plot
+  
+
+```
+
+## F1 and F2 Range
+
+```{r}
+
+F1_F2<- vowels_df %>%
+  tidyr::pivot_longer(cols = F1:F2,
+                      names_to = "Formant",
+                      values_to = "Hz") %>%
+  dplyr::group_by(SpeakerID, timePoint, Formant) %>%
+  dplyr::summarize(Min = min(Hz), Max = max(Hz)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(range = Max - Min) %>%
+  dplyr::left_join(participants, by = "SpeakerID")
+
+
+F1_F2_des <- F1_F2 %>%
+  dplyr::mutate(timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::group_by(Group, timePoint, Formant) %>%
+  dplyr::summarize(mean_range = mean(range), sd = sd(range)) %>%
+  dplyr::ungroup()
+
+F1_F2_plot <- F1_F2_des %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = mean_range,
+      group = Group,
+      color = Group) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Time Point",
+       y = "Hz Range") +
+  facet_wrap("Formant") +
+  theme_classic()
+
+F1_F2_plot
+  
+
+```
+
+
+## Moment Analysis
+
+### M1
+
+```{r}
+
+M1_des <- consonants_df %>%
+  dplyr::select(c(SpeakerID, timePoint, Group, Sex, Segment, M1, M2)) %>%
+  dplyr::mutate(timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::group_by(Group, timePoint, Segment) %>%
+  dplyr::summarize(Mean_M1 = mean(M1), sd = sd(M1), se = sd/sqrt(n()))
+
+M1_plot <- M1_des %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = Mean_M1,
+      group = Group,
+      color = Group) +
+  geom_line() +
+  geom_errorbar(aes(ymin = Mean_M1 - se, ymax = Mean_M1 + se), width = 0.2) +
+  labs(x = "Time Point",
+       y = "M1 (kHz)") +
+  facet_wrap("Segment") +
+  theme_classic()
+
+M1_plot
+
+```
+
+### M2
+
+```{r}
+
+M2_des <- consonants_df %>%
+  dplyr::select(c(SpeakerID, timePoint, Group, Sex, Segment, M1, M2)) %>%
+  dplyr::mutate(timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::group_by(Group, timePoint, Segment) %>%
+  dplyr::summarize(Mean_M2 = mean(M2), sd = sd(M2), se = sd/sqrt(n()))
+
+M2_plot <- M2_des %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = Mean_M2,
+      group = Group,
+      color = Group) +
+  geom_line() +
+  geom_errorbar(aes(ymin = Mean_M2 - se, ymax = Mean_M2 + se), width = 0.2) +
+  labs(x = "Time Point",
+       y = "M2 (kHz)") +
+  facet_wrap("Segment") +
+  theme_classic()
+
+M2_plot
+
+```
+
