@@ -162,6 +162,8 @@ plot_VSA <- VSA_plot %>%
 
 plot_VSA
 
+ggsave("VSA_plot.png", plot = last_plot())
+
 ```
 
 
