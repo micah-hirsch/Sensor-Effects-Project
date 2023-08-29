@@ -223,11 +223,73 @@ M2_plot
 
 ```
 
-M1 Ratio
+# M1 Ratio
 
 ```{r}
 
+M1_ratio <- consonants_df %>%
+  dplyr::select(SpeakerID, timePoint, Group, Sex, Age, Segment, M1) %>%
+  tidyr::pivot_wider(names_from = Segment,
+                     values_from = M1) %>%
+  dplyr::mutate(M1_ratio = s/sh)
 
+M1_ratio_des <- M1_ratio %>%
+  dplyr::mutate(timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::group_by(Group, timePoint) %>%
+  dplyr::summarize(M1_ratio_mean = mean(M1_ratio), sd = sd(M1_ratio), se = sd/sqrt(n()))
+
+M1_ratio_plot <- M1_ratio_des %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = M1_ratio_mean,
+      group = Group,
+      color = Group) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = M1_ratio_mean - se, ymax = M1_ratio_mean + se)) +
+  labs(x = "Time Point",
+       y = "M1 Ratio s/sh") +
+  theme_classic()
+
+M1_ratio_plot
+
+ggsave("Figures/M1_ratio.png", plot = last_plot())
+
+```
+
+# M2 Ratio
+
+```{r}
+
+M2_ratio <- consonants_df %>%
+  dplyr::select(SpeakerID, timePoint, Group, Sex, Age, Segment, M2) %>%
+  tidyr::pivot_wider(names_from = Segment,
+                     values_from = M2) %>%
+  dplyr::mutate(M2_ratio = s/sh)
+
+M2_ratio_des <- M2_ratio %>%
+  dplyr::mutate(timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::group_by(Group, timePoint) %>%
+  dplyr::summarize(M2_ratio_mean = mean(M2_ratio), sd = sd(M2_ratio), se = sd/sqrt(n()))
+
+M2_ratio_plot <- M2_ratio_des %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = M2_ratio_mean,
+      group = Group,
+      color = Group) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = M2_ratio_mean - se, ymax = M2_ratio_mean + se)) +
+  labs(x = "Time Point",
+       y = "M2 Ratio s/sh") +
+  theme_classic()
+
+M2_ratio_plot
+
+ggsave("Figures/M2_ratio.png", plot = last_plot())
 
 ```
 
