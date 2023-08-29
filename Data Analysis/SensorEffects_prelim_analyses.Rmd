@@ -17,6 +17,7 @@ The purpose of this document is to conduct preliminary analyses for the Sensor E
 
 library(rio)
 library(tidyverse)
+library(geometry)
 
 artic_rate_df <- rio::import("Prepped Data/FinalMeasures_articRate.csv")
 consonants_df <- rio::import("Prepped Data/FinalMeasures_consonants.csv")
@@ -123,6 +124,43 @@ F1_F2_plot <- F1_F2_des %>%
 
 F1_F2_plot
   
+
+```
+## VSA
+
+```{r}
+
+VSA_coords <- vowels_df %>%
+  dplyr::group_by(SpeakerID, timePoint, vowel) %>%
+  dplyr::summarize(mean_F1 = mean(F1),
+                   mean_F2 = mean(F2))
+
+VSA_measure <- VSA_coords %>%
+  dplyr::mutate(VSA = geometry::polyarea(mean_F1, mean_F2)) %>%
+  dplyr::mutate(timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::left_join(participants, by = "SpeakerID") %>%
+  dplyr::select(!vowel:mean_F2) %>%
+  dplyr::distinct() %>%
+  dplyr::ungroup()
+
+VSA_plot <- VSA_measure %>% 
+  dplyr::group_by(Group, timePoint) %>%
+  dplyr::summarize(VSA_mean = mean(VSA), VSA_sd = sd(VSA), se = VSA_sd/sqrt(n())) 
+
+plot_VSA <- VSA_plot %>%
+  ggplot() +
+  aes(x = timePoint,
+      y = VSA_mean,
+      group = Group,
+      color = Group) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = VSA_mean - se, ymax = VSA_mean + se)) +
+  labs(x = "Time Point", y = bquote('Vowel Space Area'(Hz^2))) +
+  theme_classic()
+
+plot_VSA
 
 ```
 
