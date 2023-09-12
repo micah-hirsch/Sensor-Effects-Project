@@ -17,8 +17,9 @@ The purpose of this document is to conduct preliminary analyses for the Sensor E
 
 library(rio)
 library(tidyverse)
-library(geometry)
+library(geometry) # install.packages('geometry')
 library(ggpubr)
+library(NatParksPalettes) # install.packages('NatParksPalettes')
 
 artic_rate_df <- rio::import("Prepped Data/FinalMeasures_articRate.csv")
 consonants_df <- rio::import("Prepped Data/FinalMeasures_consonants.csv")
@@ -130,6 +131,13 @@ F1_F2_plot
 ## VSA
 
 ```{r}
+pal <- natparks.pals("Arches", 9, type = "discrete") %>%
+  as.data.frame() %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::select(V2,V8) %>%
+  as.character()
+
 
 VSA_coords <- vowels_df %>%
   dplyr::group_by(SpeakerID, timePoint, vowel) %>%
@@ -137,9 +145,11 @@ VSA_coords <- vowels_df %>%
                    mean_F2 = mean(F2))
 
 VSA_measure <- VSA_coords %>%
-  dplyr::mutate(VSA = geometry::polyarea(mean_F1, mean_F2)) %>%
+  dplyr::mutate(VSA = (geometry::polyarea(mean_F1, mean_F2))/1000) %>% # Converted this into kHz for smaller units
   dplyr::mutate(timePoint = as.factor(timePoint),
-                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+                timePoint = factor(timePoint,
+                                   levels = c("before", "sensors", "after"),
+                                   labels = c("Before", "Sensors", "After"))) %>%
   dplyr::left_join(participants, by = "SpeakerID") %>%
   dplyr::select(!vowel:mean_F2) %>%
   dplyr::distinct() %>%
@@ -157,9 +167,18 @@ plot_VSA <- VSA_plot %>%
       color = Group) +
   geom_point() +
   geom_line() +
-  geom_errorbar(aes(ymin = VSA_mean - se, ymax = VSA_mean + se)) +
-  labs(x = "Time Point", y = bquote('Vowel Space Area'(Hz^2))) +
-  theme_classic()
+  geom_errorbar(
+    aes(
+      ymin = VSA_mean - se,
+      ymax = VSA_mean + se),
+    width = .1
+    ) +
+  scale_color_manual(values = pal) +
+  labs(
+    x = "",
+    y = bquote('Vowel Space Area '(kHz^2))) +
+  theme_classic() +
+  theme(aspect.ratio = 1)
 
 plot_VSA
 
@@ -177,7 +196,12 @@ ggsave("VSA_plot.png", plot = last_plot())
 M1_des <- consonants_df %>%
   dplyr::select(c(SpeakerID, timePoint, Group, Sex, Segment, M1, M2)) %>%
   dplyr::mutate(timePoint = as.factor(timePoint),
-                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+                timePoint = factor(timePoint,
+                                   levels = c("before", "sensors", "after"),
+                                   labels = c("Before", "Sensors", "After")),
+                Segment = factor(Segment,
+                                 levels = c("s", "sh"),
+                                 labels = c("/s/", "/ʃ/"))) %>%
   dplyr::group_by(Group, timePoint, Segment) %>%
   dplyr::summarize(Mean_M1 = mean(M1), sd = sd(M1), se = sd/sqrt(n()))
 
@@ -187,12 +211,15 @@ M1_plot <- M1_des %>%
       y = Mean_M1,
       group = Group,
       color = Group) +
+  geom_point() +
   geom_line() +
-  geom_errorbar(aes(ymin = Mean_M1 - se, ymax = Mean_M1 + se), width = 0.2) +
-  labs(x = "Time Point",
+  geom_errorbar(aes(ymin = Mean_M1 - se, ymax = Mean_M1 + se), width = 0.1) +
+  labs(x = "",
        y = "M1 (kHz)") +
+  scale_color_manual(values = pal) +
   facet_wrap("Segment") +
-  theme_classic()
+  theme_classic() +
+  theme(aspect.ratio = 1)
 
 M1_plot
 
@@ -300,11 +327,16 @@ ggsave("Figures/M2_ratio.png", plot = last_plot())
 
 ```{r}
 
-msc_plot <- ggarrange(M1_plot, plot_VSA, ncol = 1, nrow = 2)
+msc_plot <- M1_plot + plot_VSA +
+  patchwork::plot_layout(
+    ncol = 2,
+    nrow = 1,
+    widths = c(2, 1),
+    guides = "collect")
 
 msc_plot
 
-ggsave("msc_plot.png", plot = last_plot(), width = 7, height = 10, units = "in", scale = 0.7)
+ggsave("msc_plot.png", plot = last_plot(), width = 5.5, height = 2, units = "in", scale = 1.5)
 
 ```
 
