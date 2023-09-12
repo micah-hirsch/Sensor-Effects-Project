@@ -20,6 +20,9 @@ library(tidyverse)
 library(geometry) # install.packages('geometry')
 library(ggpubr)
 library(NatParksPalettes) # install.packages('NatParksPalettes')
+library(lme4)
+library(lmerTest)
+library(emmeans)
 
 artic_rate_df <- rio::import("Prepped Data/FinalMeasures_articRate.csv")
 consonants_df <- rio::import("Prepped Data/FinalMeasures_consonants.csv")
@@ -337,6 +340,47 @@ msc_plot <- M1_plot + plot_VSA +
 msc_plot
 
 ggsave("msc_plot.png", plot = last_plot(), width = 5.5, height = 2, units = "in", scale = 1.5)
+
+```
+# Preliminary Models
+
+## M1 for s
+
+```{r}
+
+analysis_M1_s <- consonants_df %>%
+  dplyr::select(c(SpeakerID, timePoint, Group, Sex, Segment, M1, M2)) %>%
+  dplyr::mutate(time = case_when(timePoint == "before" ~ 1,
+                                 timePoint == "sensors" ~ 2,
+                                 TRUE ~ 3),
+                time_c = time - 1,
+                timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::filter(Segment == "s")
+
+m1_model = lmer(M1 ~  timePoint*Group + (1 | SpeakerID), data = analysis_M1_s)
+summary(m1_model)
+emm_m1_s = emmeans(m1_model, specs = pairwise ~ timePoint:Group)
+emm_m1_s$contrasts
+
+```
+
+## M1 for sh
+
+```{r}
+
+analysis_M1_sh <- consonants_df %>%
+  dplyr::select(c(SpeakerID, timePoint, Group, Sex, Segment, M1, M2)) %>%
+  dplyr::mutate(time = case_when(timePoint == "before" ~ 1,
+                                 timePoint == "sensors" ~ 2,
+                                 TRUE ~ 3),
+                time_c = time - 1,
+                timePoint = as.factor(timePoint),
+                timePoint = fct_relevel(timePoint, "before", "sensors", "after")) %>%
+  dplyr::filter(Segment == "sh")
+
+m1_model_sh = lmer(M1 ~ time_c + timePoint + Group + timePoint*time_c*Group + (time_c | SpeakerID), data = analysis_M1_sh)
+summary(m1_model_sh)
 
 ```
 
