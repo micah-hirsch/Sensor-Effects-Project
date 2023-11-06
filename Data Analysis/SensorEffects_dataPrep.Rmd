@@ -25,8 +25,8 @@ library(PraatR) # devtools:::install_github("usagi5886/PraatR")
 # Loading in the data
 ```{r}
 
-rawDataPath <- "/Users/austinthompson/Library/CloudStorage/Dropbox/Work/Motor Speech Lab/Projects/Sensor Effects Project/Raw Data"
-databasePath <- "/Users/austinthompson/Library/CloudStorage/Dropbox/Work/Databases/CoarticData"
+rawDataPath <- "/Users/austinthompson/Library/CloudStorage/Dropbox/Work/Research/Github/Sensor-Effects-Project/Data Analysis/Raw Data"
+databasePath <- "/Users/austinthompson/Library/CloudStorage/Dropbox/Work/Research/Databases/Coartic-Database"
 
 ## Segmented Data (i.e., Speakers that are completed)
 segmentedData <- list.files(
@@ -51,6 +51,8 @@ loadData <- function(path, speaker) {
   path_tp_info <- path %>%
     as.data.frame() %>%
     dplyr::rename(path = 1) %>%
+    
+    # Finding which TP we have
     dplyr::mutate(tp = case_when(
       grepl(pattern = "before", ignore.case = T, path) ~ "before",
       grepl(pattern = "after", ignore.case = T, path) ~ "after",
@@ -119,6 +121,7 @@ while (k <= nrow(speakers)) {
   speakerSegments <- base::do.call(rbind,lapply(speakerFiles$path,loadData, speaker = speaker)) %>%
     dplyr::mutate(SpeakerID = speaker)
   
+  # Initializing the Segments
   if (k == 1) {
     Segments <- speakerSegments %>%
       dplyr::relocate(SpeakerID, .before = "Segment")
@@ -132,15 +135,18 @@ while (k <= nrow(speakers)) {
 
 Segments <- Segments %>%
   dplyr::mutate(
+    # Correcting a human coding error
     Segment = case_when(
       Segment == "Phrase_3.2_9" ~ "Phrase3.2_9",
       Segment == "Phase3.3_10" ~ "Phrase3.3_10",
       TRUE ~ Segment)) %>%
+  
+  # Merge with the speaker list, which has the demographics
   base::merge(., speakers) %>%
   dplyr::relocate(c(Group:Age,path, timePoint), .before = Segment) %>%
   dplyr::select(!path)
 
-
+# Pulling out the phrases
 phrases <- Segments %>%
   dplyr::filter(grepl(pattern = "phrase",
                       ignore.case = T,
@@ -167,20 +173,30 @@ phonemes <- Segments %>%
 fileInventories <- rio::import(
   file = paste(databasePath, "File Inventories.xlsx", sep = "/")
 ) %>%
+  
+  # Cleaning up File Inventories
   dplyr::rename(SpeakerID = 1) %>%
+  
+  # Getting just the completed & segmented speakers
   dplyr::filter(.$SpeakerID %in% speakers$SpeakerID) %>%
+  
+  # Selecting just the cols of interest
   dplyr::select(SpeakerID,
                 `Folder #1`,
                 `Caterpillar (No Sensors)`,
                 `Folder 2`,
                 `Caterpillar (Conversational)`,
                 `Caterpillar (End, No Sensors)`) %>%
+  
+  # Creating the path names
   dplyr::mutate(
     path = paste(databasePath, SpeakerID, sep = "/"),
     before = paste(path,`Folder #1`, `Caterpillar (No Sensors)`, sep = "/"),
     sensors = paste(path, `Folder 2`, `Caterpillar (Conversational)`, sep = "/"),
     after = paste(path, `Folder 2`, `Caterpillar (End, No Sensors)`, sep = "/"),
   ) %>%
+  
+  # Pivoting longer
   dplyr::select(SpeakerID, before, sensors, after) %>%
   tidyr::pivot_longer(cols = c(before:after),
                       names_to = "timePoint",
@@ -243,6 +259,7 @@ consonants <- consonants %>%
                             input = paste0(targetFile,"_target.Spectrum")) %>%
                       str_replace(" hertz", "") %>%
                       as.numeric() / 1000,
+        # Spectral moment power distribution
         M1_p = PraatR::praat( "Get centre of gravity...",
                             arguments = list(2),
                             input = paste0(targetFile,"_target.Spectrum")) %>%
@@ -287,7 +304,8 @@ vowels <- phonemes %>%
                   pattern = "l",
                   replacement = "",
                   x = label
-                ))
+                ),
+                vowel = base::tolower(vowel))
 
 # Loop to calculate F1 & F2 at temporal midpoint
 k <- 1
@@ -331,7 +349,7 @@ while (k <= nrow(vowels)) {
     fileNameFormant = paste0(targetFile,"_target.Formant"),
     encoding = "auto"
     )
-  midFrame <- formant.getPointIndexNearestTime(formants,
+  midFrame <- rPraat::formant.getPointIndexNearestTime(formants,
                                    time = (formants$xmax/2) + formants$xmin)
   
   midpoint <- formants$frame[[midFrame]][["frequency"]] %>%
