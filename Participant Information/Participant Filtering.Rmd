@@ -89,12 +89,9 @@ speakers_final %>%
 ```
 
 
-# Export Final Participant List
+```{r, eval = F, warning = F, message = F}
 
-The following code block exports the final participant list. Please note: two versions of this was exported. The one shared publicly here does not contain the specific audio file names.
-
-```{r, warning = F, message = F}
-
+# expoet final participant list
 rio::export(speakers_final, "Sensor_Effects_Participants_Lab_Version.csv")
 
 ```
