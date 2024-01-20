@@ -1,0 +1,156 @@
+File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = 0 
+xmax = 78.21165532879819 
+tiers? <exists> 
+size = 2 
+item []: 
+    item [1]:
+        class = "IntervalTier" 
+        name = "phrase" 
+        xmin = 0 
+        xmax = 78.21165532879819 
+        intervals: size = 13 
+        intervals [1]:
+            xmin = 0 
+            xmax = 7.054934464466589 
+            text = "" 
+        intervals [2]:
+            xmin = 7.054934464466589 
+            xmax = 8.337402649252228 
+            text = "Phrase1_7" 
+        intervals [3]:
+            xmin = 8.337402649252228 
+            xmax = 44.031154160953314 
+            text = "" 
+        intervals [4]:
+            xmin = 44.031154160953314 
+            xmax = 46.138233826252524 
+            text = "Phrase2_11" 
+        intervals [5]:
+            xmin = 46.138233826252524 
+            xmax = 69.2343842074928 
+            text = "" 
+        intervals [6]:
+            xmin = 69.2343842074928 
+            xmax = 70.69029000458785 
+            text = "Phrase3.1_10" 
+        intervals [7]:
+            xmin = 70.69029000458785 
+            xmax = 70.98271643058308 
+            text = "" 
+        intervals [8]:
+            xmin = 70.98271643058308 
+            xmax = 72.28231163077174 
+            text = "Phrase3.2_9" 
+        intervals [9]:
+            xmin = 72.28231163077174 
+            xmax = 72.7854248452768 
+            text = "" 
+        intervals [10]:
+            xmin = 72.7854248452768 
+            xmax = 73.53437310178258 
+            text = "Phrase3.3_3" 
+        intervals [11]:
+            xmin = 73.53437310178258 
+            xmax = 73.77623449416285 
+            text = "" 
+        intervals [12]:
+            xmin = 73.77623449416285 
+            xmax = 74.86810007036088 
+            text = "Phrase3.4_7" 
+        intervals [13]:
+            xmin = 74.86810007036088 
+            xmax = 78.21165532879819 
+            text = "" 
+    item [2]:
+        class = "IntervalTier" 
+        name = "phoneme" 
+        xmin = 0 
+        xmax = 78.21165532879819 
+        intervals: size = 21 
+        intervals [1]:
+            xmin = 0 
+            xmax = 9.13385872719763 
+            text = "" 
+        intervals [2]:
+            xmin = 9.13385872719763 
+            xmax = 9.262207779385385 
+            text = "sh" 
+        intervals [3]:
+            xmin = 9.262207779385385 
+            xmax = 16.252626033622857 
+            text = "" 
+        intervals [4]:
+            xmin = 16.252626033622857 
+            xmax = 16.357540762197473 
+            text = "ae" 
+        intervals [5]:
+            xmin = 16.357540762197473 
+            xmax = 21.717151688120712 
+            text = "" 
+        intervals [6]:
+            xmin = 21.717151688120712 
+            xmax = 21.82732095684539 
+            text = "s" 
+        intervals [7]:
+            xmin = 21.82732095684539 
+            xmax = 24.93810418734919 
+            text = "" 
+        intervals [8]:
+            xmin = 24.93810418734919 
+            xmax = 25.02224117756748 
+            text = "u" 
+        intervals [9]:
+            xmin = 25.02224117756748 
+            xmax = 32.088094913877015 
+            text = "" 
+        intervals [10]:
+            xmin = 32.088094913877015 
+            xmax = 32.203178933438906 
+            text = "ae" 
+        intervals [11]:
+            xmin = 32.203178933438906 
+            xmax = 33.356120227431774 
+            text = "" 
+        intervals [12]:
+            xmin = 33.356120227431774 
+            xmax = 33.41469592601118 
+            text = "i" 
+        intervals [13]:
+            xmin = 33.41469592601118 
+            xmax = 46.014085172615125 
+            text = "" 
+        intervals [14]:
+            xmin = 46.014085172615125 
+            xmax = 46.10081560419598 
+            text = "a" 
+        intervals [15]:
+            xmin = 46.10081560419598 
+            xmax = 51.55823394889092 
+            text = "" 
+        intervals [16]:
+            xmin = 51.55823394889092 
+            xmax = 51.615552439238705 
+            text = "i" 
+        intervals [17]:
+            xmin = 51.615552439238705 
+            xmax = 54.172113940345525 
+            text = "" 
+        intervals [18]:
+            xmin = 54.172113940345525 
+            xmax = 54.24713435329536 
+            text = "u" 
+        intervals [19]:
+            xmin = 54.24713435329536 
+            xmax = 60.825930964523245 
+            text = "" 
+        intervals [20]:
+            xmin = 60.825930964523245 
+            xmax = 60.89307932738671 
+            text = "a" 
+        intervals [21]:
+            xmin = 60.89307932738671 
+            xmax = 78.21165532879819 
+            text = "" 
