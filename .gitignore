@@ -2,9 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-Participant Information/File Inventories.xlsx
-Participant Information/Sensor_Effects_Participants_Lab_Version.csv
+Data Analysis/Participant Information/File Inventories.xlsx
+Data Analysis/Participant Information/Sensor_Effects_Participants_Lab_Version.csv
 .DS_Store
-Participant Information/Participant-Filtering.html
-Preliminary Analysis/Raw Data
-Data Analysis/SensorEffects_prelim_analyses.html
+Preliminary Analyses/SensorEffects_prelim_analyses.html
+*.wav
