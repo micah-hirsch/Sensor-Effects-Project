@@ -55,6 +55,14 @@ speakers_final <- all_speakers %>%
                 group = as.factor(group),
                 sex = as.factor(sex))
 
+# Sub 46 and Sub 62 have the wrong file names for caterpillar_end_no_sensors. That is fixed here
+
+speakers_final <- speakers_final %>%
+  dplyr::mutate(caterpillar_end_no_sensors = case_when(
+    caterpillar_end_no_sensors == "Sub46_1_010_sync" ~ "Sub46_1_011_sync",
+    caterpillar_end_no_sensors == "Sub62_1_010_sync" ~ "Sub62_1_011_sync",
+    TRUE ~ caterpillar_end_no_sensors))
+
 ```
 
 # Participant Descriptives
@@ -73,26 +81,20 @@ speakers_final %>%
               digits = list(everything() ~ c(2)))
 
 
-
-speakers_final %>%
-  dplyr::group_by(group) %>%
-  dplyr::summarize(n = n(), age_mean = mean(age, na.rm = T), age_sd = sd(Age, na.rm = T)) %>%
-  dplyr::ungroup() %>%
-  gt::gt() %>%
-  fmt_number(columns = "age_mean":"age_sd", decimals = 2) %>% 
-  tab_spanner(label = "Age",
-              columns = c(age_mean, age_sd)) %>%
-  cols_label(age_mean = "Mean",
-             age_sd = "SD")
-  
-
 ```
 
 
 ```{r, eval = F, warning = F, message = F}
 
-# expoet final participant list
+# export final participant list
 rio::export(speakers_final, "Sensor_Effects_Participants_Lab_Version.csv")
+
+# export demographic information. shareable version
+
+speaker_demo <- speakers_final %>%
+  dplyr::select(sub_number, group, sex, age)
+
+rio::export(speaker_demo, "participant_demographics.csv")
 
 ```
 
