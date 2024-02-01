@@ -10,7 +10,7 @@ library(rPraat) # install.packages("rPraat")
 library(remotes) # install.packages("remotes")
 library(PraatR) # remotes:::install_github("usagi5886/PraatR")
 
-wd <- "~/Documents/Github Repositories/Sensor-Effects-Project/Raw Speaker Data/"
+wd <- "~/Documents/Github/Sensor-Effects-Project/Raw_Speaker_Data/"
 
 setwd(wd)
 
@@ -30,7 +30,7 @@ speakers <- files |>
 ## Creating file paths df
 
 textgrid_in_paths <- files |>
-  dplyr::mutate(path = paste("Initial Segments", speaker_id, sep = "/"),
+  dplyr::mutate(path = paste("Initial_Segments", speaker_id, sep = "/"),
                 before = paste(path, caterpillar_no_sensors, sep = "/"),
                 sensors = paste(path, caterpillar_conversational, sep = "/"),
                 after = paste(path, caterpillar_end_no_sensors, sep = "/")) |>
