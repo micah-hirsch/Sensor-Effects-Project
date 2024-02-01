@@ -150,6 +150,9 @@ phonemes <- Segments |>
                        ignore.case = T,
                        x = Segment))
 
+## Removing unneeded items from environment
+rm(Segments, speakerFiles, textgrid_paths, speaker, k, file_path)
+
 ## Loading in wav file paths
 wav_paths <- files |>
   dplyr::mutate(path = paste("Recordings", speaker_id, sep = "/"),
@@ -249,4 +252,7 @@ while (k <= nrow(vowels)) {
 ## Cleaning vowels df
 vowels <- vowels |>
   dplyr::select(!c(Segment, path, label, Row)) |>
-  janitor::clean_names()
+  janitor::clean_names() |>
+  dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
+                sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")))
