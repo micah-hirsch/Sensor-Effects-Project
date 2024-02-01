@@ -9,10 +9,14 @@ library(tidyverse) #install.packages("tidyverse")
 library(rPraat) # install.packages("rPraat")
 library(remotes) # install.packages("remotes")
 library(PraatR) # remotes:::install_github("usagi5886/PraatR")
+library(datadictionary) #install.packages("datadictionary")
+library(janitor) #install.packages("janitor")
 
-wd <- "~/Documents/Github/Sensor-Effects-Project/Raw_Speaker_Data/"
+raw_wd <- "~/Documents/Github/Sensor-Effects-Project/Raw_Speaker_Data/"
 
-setwd(wd)
+save_wd <- "~/Documents/Github/Sensor-Effects-Project/Data_Analysis"
+
+setwd(raw_wd)
 
 # Loading in the data
 
@@ -29,8 +33,8 @@ speakers <- files |>
 
 ## Creating file paths df
 
-textgrid_in_paths <- files |>
-  dplyr::mutate(path = paste("Initial_Segments", speaker_id, sep = "/"),
+textgrid_paths <- files |>
+  dplyr::mutate(path = paste("Segments", speaker_id, sep = "/"),
                 before = paste(path, caterpillar_no_sensors, sep = "/"),
                 sensors = paste(path, caterpillar_conversational, sep = "/"),
                 after = paste(path, caterpillar_end_no_sensors, sep = "/")) |>
@@ -48,7 +52,7 @@ loadData <- function(path, speaker) {
   path_tp_info <- path |>
     as.data.frame() |>
     dplyr::rename(path = 1) |>
-    dplyr::left_join(textgrid_in_paths, by = "path")
+    dplyr::left_join(textgrid_paths, by = "path")
   
   # Load the TextGrid
   tg <- rPraat::tg.read(fileNameTextGrid = path,
@@ -97,7 +101,7 @@ k <- 1
 while (k <= nrow(files)) {
   
   speaker <- speakers$speaker_id[k]
-  file_path <- paste("Initial Segments", speaker, sep = "/")
+  file_path <- paste("Segments", speaker, sep = "/")
   
   speakerFiles <- list.files(
     path = paste0(file_path,"/")) |>
@@ -210,8 +214,8 @@ while (k <= nrow(vowels)) {
   )
   PraatR::praat( "To Formant (burg)...",
                  arguments = formantArg,
-                 input = paste(wd, targetFile,"_target.wav", sep = ""),
-                 output = paste(wd, targetFile,"_target.Formant", sep = ""),
+                 input = paste(raw_wd, targetFile,"_target.wav", sep = ""),
+                 output = paste(raw_wd, targetFile,"_target.Formant", sep = ""),
                  filetype = "text",
                  overwrite = TRUE)
   
@@ -234,7 +238,7 @@ while (k <= nrow(vowels)) {
     dplyr::mutate(
       F1 = as.numeric(F1_mid),
       F2 = as.numeric(F2_mid)) |>
-    bind_rows(., vowels |>
+    bind_rows(vowels |>
                 filter(Row != k)) |>
     arrange(Row)
   
@@ -244,3 +248,7 @@ while (k <= nrow(vowels)) {
   
   k <- k + 1
 }
+
+vowels <- vowels |>
+  dplyr::select(!c(Segment, path, label, Row)) |>
+  janitor::clean_names()
