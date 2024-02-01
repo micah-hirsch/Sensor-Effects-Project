@@ -34,7 +34,7 @@ textgrid_in_paths <- files |>
                 after = paste(path, caterpillar_end_no_sensors, sep = "/")) |>
   dplyr::select(speaker_id, before, sensors, after) |>
   tidyr::pivot_longer(cols = c(before:after),
-                      names_to = "tp",
+                      names_to = "timePoint",
                       values_to = "path") |>
   dplyr::mutate(path = paste(path, "TextGrid", sep = "."))
 
@@ -83,7 +83,7 @@ loadData <- function(path, speaker) {
     dplyr::filter(Segment != "")
   
   speakerSegments <- rbind(Phrase, Phoneme) |>
-    dplyr::mutate(timePoint = path_tp_info$tp,
+    dplyr::mutate(timePoint = path_tp_info$timePoint,
                   path = path_tp_info$path)
   
   return(speakerSegments)
@@ -155,10 +155,21 @@ wav_paths <- files |>
                 after = paste(path, caterpillar_end_no_sensors, sep = "/")) |>
   dplyr::select(speaker_id, before, sensors, after) |>
   tidyr::pivot_longer(cols = c(before:after),
-                      names_to = "tp",
+                      names_to = "timePoint",
                       values_to = "path") |>
   dplyr::mutate(path = paste(path, "wav", sep = "."))
 
 
 # Vowel Measures
 
+vowels <- phonemes |>
+  dplyr::filter(Segment != "sh") |>
+  dplyr::filter(Segment != "s") |>
+  dplyr::left_join(wav_paths, by = c("speaker_id", "timePoint")) |>
+  dplyr::mutate(Row = dplyr::row_number(),
+                label = Segment,
+                vowel = gsub(
+                  pattern = "l",
+                  replacement = "",
+                  x = label),
+                vowel = base::tolower(vowel))
