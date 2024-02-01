@@ -10,7 +10,9 @@ library(rPraat) # install.packages("rPraat")
 library(remotes) # install.packages("remotes")
 library(PraatR) # remotes:::install_github("usagi5886/PraatR")
 
-setwd("~/Documents/Github Repositories/Sensor-Effects-Project/Raw Speaker Data/")
+wd <- "~/Documents/Github Repositories/Sensor-Effects-Project/Raw Speaker Data/"
+
+setwd(wd)
 
 # Loading in the data
 
@@ -156,8 +158,7 @@ wav_paths <- files |>
   dplyr::select(speaker_id, before, sensors, after) |>
   tidyr::pivot_longer(cols = c(before:after),
                       names_to = "timePoint",
-                      values_to = "path") |>
-  dplyr::mutate(path = paste(path, "wav", sep = "."))
+                      values_to = "path")
 
 
 # Vowel Measures
@@ -165,6 +166,7 @@ wav_paths <- files |>
 vowels <- phonemes |>
   dplyr::filter(Segment != "sh") |>
   dplyr::filter(Segment != "s") |>
+  dplyr::select(!path) |>
   dplyr::left_join(wav_paths, by = c("speaker_id", "timePoint")) |>
   dplyr::mutate(Row = dplyr::row_number(),
                 label = Segment,
@@ -173,3 +175,72 @@ vowels <- phonemes |>
                   replacement = "",
                   x = label),
                 vowel = base::tolower(vowel))
+
+## Extracting F1 and F2
+
+k <- 1
+while (k <= nrow(vowels)) {
+  
+  targetFile <- vowels |>
+    dplyr::filter(row_number() == k) |>
+    dplyr::select(path) |>
+    as.character()
+  
+  currentTarget <- vowels |>
+    dplyr::mutate(onset = onset,
+                  offset = offset) |>
+    slice(k)
+  
+  # Loading in the sound wav
+  sndWav <- rPraat::snd.read(paste0(targetFile, ".wav"))
+  
+  # Cutting the sound wav to be just the target
+  rPraat::snd.cut(sndWav,
+                  Start = currentTarget$onset,
+                  End = currentTarget$offset) |>
+    rPraat::snd.write(paste0(targetFile,"_target.wav"))
+  
+  # Creating the current target.Formant
+  formantArg <- list(
+    .00,
+    5.0,
+    ifelse(currentTarget$sex == "M", 5000, 5500),
+    0.025,
+    50
+  )
+  PraatR::praat( "To Formant (burg)...",
+                 arguments = formantArg,
+                 input = paste(wd, targetFile,"_target.wav", sep = ""),
+                 output = paste(wd, targetFile,"_target.Formant", sep = ""),
+                 filetype = "text",
+                 overwrite = TRUE)
+  
+  formants <- rPraat::formant.read(
+    fileNameFormant = paste0(targetFile,"_target.Formant"),
+    encoding = "auto"
+  )
+  midFrame <- rPraat::formant.getPointIndexNearestTime(formants,
+                                                       time = (formants$xmax/2) + formants$xmin)
+  
+  midpoint <- formants$frame[[midFrame]][["frequency"]] |>
+    as.data.frame() |>
+    dplyr::rename(Formants = 1)
+  
+  F1_mid <- midpoint[1,]
+  F2_mid <- midpoint[2,]
+  
+  vowels <- vowels |>
+    filter(Row == k) |>
+    dplyr::mutate(
+      F1 = as.numeric(F1_mid),
+      F2 = as.numeric(F2_mid)) |>
+    bind_rows(., vowels |>
+                filter(Row != k)) |>
+    arrange(Row)
+  
+  # Cleaning up the folder
+  file.remove(paste0(targetFile,"_target.wav"))
+  file.remove(paste0(targetFile,"_target.Formant"))
+  
+  k <- k + 1
+}
