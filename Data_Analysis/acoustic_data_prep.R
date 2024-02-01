@@ -12,27 +12,26 @@ library(PraatR) # remotes:::install_github("usagi5886/PraatR")
 library(datadictionary) #install.packages("datadictionary")
 library(janitor) #install.packages("janitor")
 
+# Setting paths to import raw data and export cleaned data
 raw_wd <- "~/Documents/Github/Sensor-Effects-Project/Raw_Speaker_Data/"
 
-save_wd <- "~/Documents/Github/Sensor-Effects-Project/Data_Analysis"
+cleaned_wd <- "~/Documents/Github/Sensor-Effects-Project/Data_Analysis"
 
+# Setting working directory
 setwd(raw_wd)
 
 # Loading in the data
 
 ## Loading in file information
-
 files <- rio::import("Sensor_Effects_Participants_Lab_Version.csv") |>
   dplyr::rename(speaker_id = sub_number) |>
   dplyr::mutate_all(~gsub("\\*", "", .))
 
 ## Extracting speaker info
-
 speakers <- files |>
   dplyr::select(speaker_id:age)
 
 ## Creating file paths df
-
 textgrid_paths <- files |>
   dplyr::mutate(path = paste("Segments", speaker_id, sep = "/"),
                 before = paste(path, caterpillar_no_sensors, sep = "/"),
@@ -45,7 +44,6 @@ textgrid_paths <- files |>
   dplyr::mutate(path = paste(path, "TextGrid", sep = "."))
 
 ## Loading Textgrids
-
 loadData <- function(path, speaker) {
   
   # Extracting timepoint info
@@ -73,7 +71,7 @@ loadData <- function(path, speaker) {
       offset = as.numeric(offset)) |>
     dplyr::filter(Segment != "")
   
-  #Getting phoneme-level segments
+  # Getting phoneme-level segments
   Phoneme <- cbind(tg[[2]][["label"]],tg[[2]][["t1"]], tg[[2]][["t2"]]) |>
     as.data.frame() |>
     dplyr::rename(
@@ -138,7 +136,6 @@ Segments <- Segments |>
   dplyr::left_join(speakers, by = "speaker_id")
 
 ## Pulling out phrase segments
-
 phrases <- Segments |>
   dplyr::filter(grepl("phrase", ignore.case = T, Segment)) |>
   dplyr::mutate(phrase = case_when(grepl(pattern = "Phrase1", x = Segment) ~ "Phrase 1",
@@ -147,13 +144,13 @@ phrases <- Segments |>
                 syllables = sub(".*_", "", Segment),
                 syllables = as.numeric(syllables))
 
+## Pulling out phoneme segments
 phonemes <- Segments |>
   dplyr::filter(!grepl(pattern = "phrase",
                        ignore.case = T,
                        x = Segment))
 
-## Loading in wav files
-
+## Loading in wav file paths
 wav_paths <- files |>
   dplyr::mutate(path = paste("Recordings", speaker_id, sep = "/"),
                 before = paste(path, caterpillar_no_sensors, sep = "/"),
@@ -167,6 +164,7 @@ wav_paths <- files |>
 
 # Vowel Measures
 
+## Filtering out vowels from phoneme segments
 vowels <- phonemes |>
   dplyr::filter(Segment != "sh") |>
   dplyr::filter(Segment != "s") |>
@@ -180,8 +178,7 @@ vowels <- phonemes |>
                   x = label),
                 vowel = base::tolower(vowel))
 
-## Extracting F1 and F2
-
+## Extracting F1 and F2 from temporal midpoint
 k <- 1
 while (k <= nrow(vowels)) {
   
@@ -249,6 +246,7 @@ while (k <= nrow(vowels)) {
   k <- k + 1
 }
 
+## Cleaning vowels df
 vowels <- vowels |>
   dplyr::select(!c(Segment, path, label, Row)) |>
   janitor::clean_names()
