@@ -25,7 +25,11 @@ setwd(raw_wd)
 ## Loading in file information
 files <- rio::import("Sensor_Effects_Participants_Lab_Version.csv") |>
   dplyr::rename(speaker_id = sub_number) |>
-  dplyr::mutate_all(~gsub("\\*", "", .))
+  dplyr::mutate_all(~gsub("\\*", "", .)) |>
+  dplyr::mutate(caterpillar_conversational = case_when(speaker_id == "Sub32" ~ "Sub32_1_001_sync",
+                                                       TRUE ~ caterpillar_conversational),
+                caterpillar_end_no_sensors = case_when(speaker_id == "Sub32" ~ "Sub32_1_013_sync",
+                                                       TRUE ~ caterpillar_end_no_sensors))
 
 ## Extracting speaker info
 speakers <- files |>
@@ -255,4 +259,10 @@ vowels <- vowels |>
   janitor::clean_names() |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
-                sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")))
+                sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
+                vowel = factor(vowel, levels = c("i", "u", "ae", "a")))
+
+## Removing unneeded items from the environment
+
+rm(F1_mid, F2_mid, k, midFrame, targetFile, currentTarget, formantArg, formants, midpoint, sndWav)
+
