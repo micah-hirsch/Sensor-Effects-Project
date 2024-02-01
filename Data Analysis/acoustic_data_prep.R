@@ -38,6 +38,8 @@ textgrid_in_paths <- files |>
                       values_to = "path") |>
   dplyr::mutate(path = paste(path, "TextGrid", sep = "."))
 
+## Loading Textgrids
+
 loadData <- function(path, speaker) {
   
   # Extracting timepoint info
@@ -129,7 +131,7 @@ Segments <- Segments |>
                                     TRUE ~ Segment)) |>
   dplyr::left_join(speakers, by = "speaker_id")
 
-# Pulling out phrase segments
+## Pulling out phrase segments
 
 phrases <- Segments |>
   dplyr::filter(grepl("phrase", ignore.case = T, Segment)) |>
@@ -144,7 +146,18 @@ phonemes <- Segments |>
                        ignore.case = T,
                        x = Segment))
 
-  
-  
+## Loading in wav files
+
+wav_paths <- files |>
+  dplyr::mutate(path = paste("Recordings", speaker_id, sep = "/"),
+                before = paste(path, caterpillar_no_sensors, sep = "/"),
+                sensors = paste(path, caterpillar_conversational, sep = "/"),
+                after = paste(path, caterpillar_end_no_sensors, sep = "/")) |>
+  dplyr::select(speaker_id, before, sensors, after) |>
+  tidyr::pivot_longer(cols = c(before:after),
+                      names_to = "tp",
+                      values_to = "path") |>
+  dplyr::mutate(path = paste(path, "wav", sep = "."))
+
 
   
