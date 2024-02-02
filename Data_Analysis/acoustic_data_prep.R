@@ -350,3 +350,19 @@ consonants <- consonants |>
                 group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
                 sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
                 consonant = factor(consonant, levels = c("s", "sh")))
+
+# Articulation Rate
+
+artic_rate <- phrases |>
+  dplyr::mutate(duration = offset - onset) |>
+  dplyr::group_by(speaker_id, timePoint, phrase) |>
+  dplyr::summarize(artic_rate = sum(syllables)/sum(duration)) |>
+  ungroup() |>
+  janitor::clean_names() |>
+  dplyr::left_join(speakers, by = "speaker_id") |>
+  dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
+                sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
+                age = as.numeric(age),
+                phrase = as.factor(phrase))
+
