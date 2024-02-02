@@ -266,3 +266,87 @@ vowels <- vowels |>
 
 rm(F1_mid, F2_mid, k, midFrame, targetFile, currentTarget, formantArg, formants, midpoint, sndWav)
 
+# Consonant Analysis
+
+## Subsetting Consonants from phoneme df
+consonants <- phonemes |>
+  dplyr::filter(Segment == "sh" | Segment == "s") |>
+  dplyr::select(!path) |>
+  dplyr::left_join(wav_paths, by = c("speaker_id", "timePoint")) |>
+  dplyr::mutate(Row = row_number(),
+                consonant = Segment)
+
+## Calculating M1 and M2
+k = 1
+while (k <= nrow(consonants)) {
+  
+  # Indexing current target file path
+  targetFile <- consonants |>
+    dplyr::filter(row_number() == k) |>
+    dplyr::select(path) |>
+    as.character()
+  
+  # Selecting current target from consonant df
+  currentTarget <- consonants |>
+    slice(k)
+  
+  # Loading in the sound file
+  sndWav <- rPraat::snd.read(paste0(targetFile, ".wav"))
+  
+  # Cutting the sound wav to just the target
+  rPraat::snd.cut(sndWav,
+                  Start = currentTarget$onset,
+                  End = currentTarget$offset) |>
+    rPraat::snd.write(paste0(targetFile,"_target.wav"))
+  
+  # Creating target spectrum
+  PraatR::praat( "To Spectrum...",
+                 arguments = list(TRUE),
+                 input = paste(raw_wd, targetFile,"_target.wav", sep = ""),
+                 output = paste(raw_wd, targetFile,"_target.Spectrum", sep = ""),
+                 filetype="binary",
+                 overwrite=TRUE)
+  
+  consonants <- consonants |>
+    filter(Row == k) |>
+    dplyr::mutate(
+      M1 = PraatR::praat( "Get centre of gravity...",
+                          arguments = list(1),
+                          input = paste(raw_wd, targetFile,"_target.Spectrum", sep = "")) |>
+        str_replace(" hertz", "") |>
+        as.numeric() / 1000,
+      M2 = PraatR::praat( "Get standard deviation...",
+                          arguments = list(1),
+                          input = paste(raw_wd, targetFile,"_target.Spectrum", sep = "")) |>
+        str_replace(" hertz", "") |>
+        as.numeric() / 1000,
+      # Spectral moment power distribution
+      M1_p = PraatR::praat( "Get centre of gravity...",
+                            arguments = list(2),
+                            input = paste(raw_wd, targetFile,"_target.Spectrum", sep = "")) |>
+        str_replace(" hertz", "") |>
+        as.numeric() / 1000,
+      M2_p = PraatR::praat( "Get standard deviation...",
+                            arguments = list(2),
+                            input = paste(raw_wd, targetFile,"_target.Spectrum", sep = "")) |>
+        str_replace(" hertz", "") |>
+        as.numeric() / 1000) |>
+    bind_rows(consonants |>
+                filter(Row != k)) |>
+    arrange(Row)
+  
+  # Cleaning up the folder
+  file.remove(paste0(targetFile,"_target.wav"))
+  file.remove(paste0(targetFile,"_target.Spectrum"))
+  
+  k <- k + 1
+  
+}
+
+consonants <- consonants |>
+  dplyr::select(!c(Segment, path, Row)) |>
+  janitor::clean_names() |>
+  dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
+                sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
+                consonant = factor(consonant, levels = c("s", "sh")))
