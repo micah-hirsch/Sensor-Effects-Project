@@ -75,6 +75,9 @@ inter <- textgrid_paths |>
 textgrid_paths <- rbind(textgrid_paths, intra)
 textgrid_paths <- rbind(textgrid_paths, inter)
 
+# Removing unneeded items from environment
+rm(inter, intra, inter_speaker, intra_speakers)
+
 ## Loading Textgrids
 loadData <- function(path, speaker) {
   
@@ -165,7 +168,11 @@ Segments <- Segments |>
   dplyr::mutate(Segment = case_when(Segment == "Phrase_3.2_9" ~ "Phrase3.2_9",
                                     Segment == "Phase3.3_10" ~ "Phrase3.3_10",
                                     TRUE ~ Segment)) |>
-  dplyr::left_join(speakers, by = "speaker_id")
+  dplyr::left_join(speakers, by = "speaker_id") |>
+  dplyr::mutate(seg_type = case_when(str_detect(path, "_inter") ~ "interrater",
+                                     str_detect(path, "_intra") ~ "intrarater",
+                                     TRUE ~ "initial"))
+  
 
 ## Pulling out phrase segments
 phrases <- Segments |>
@@ -288,7 +295,8 @@ vowels <- vowels |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
                 sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
-                vowel = factor(vowel, levels = c("i", "u", "ae", "a")))
+                vowel = factor(vowel, levels = c("i", "u", "ae", "a")),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
 ## Removing unneeded items from the environment
 
@@ -377,4 +385,21 @@ consonants <- consonants |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
                 sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
-                consonant = factor(consonant, levels = c("s", "sh")))
+                consonant = factor(consonant, levels = c("s", "sh")),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
+
+# Articulation Rate
+
+artic_rate <- phrases |>
+  dplyr::mutate(duration = offset - onset) |>
+  dplyr::group_by(speaker_id, timePoint, phrase, seg_type) |>
+  dplyr::summarize(artic_rate = sum(syllables)/sum(duration)) |>
+  ungroup() |>
+  janitor::clean_names() |>
+  dplyr::left_join(speakers, by = "speaker_id") |>
+  dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
+                sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
+                age = as.numeric(age),
+                phrase = as.factor(phrase),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
