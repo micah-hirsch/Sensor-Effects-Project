@@ -164,9 +164,10 @@ while (k <= nrow(files)) {
 } 
 
 Segments <- Segments |>
-  # Fixing human coding error
+  # Fixing human coding errors
   dplyr::mutate(Segment = case_when(Segment == "Phrase_3.2_9" ~ "Phrase3.2_9",
                                     Segment == "Phase3.3_10" ~ "Phrase3.3_10",
+                                    Segment == "Phrase_2.2_3" ~ "Phrase2.2_3",
                                     TRUE ~ Segment)) |>
   dplyr::left_join(speakers, by = "speaker_id") |>
   dplyr::mutate(seg_type = case_when(str_detect(path, "_inter") ~ "interrater",
