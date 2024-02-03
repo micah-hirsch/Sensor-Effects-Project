@@ -47,6 +47,34 @@ textgrid_paths <- files |>
                       values_to = "path") |>
   dplyr::mutate(path = paste(path, "TextGrid", sep = "."))
 
+## Extracting speakers who have intra-reliability segmentations
+intra_speakers <- c("Sub32", "Sub36", "Sub39", "Sub45", "Sub47", "Sub50", "Sub52", "Sub56")
+
+intra <- textgrid_paths |>
+  dplyr::filter(speaker_id %in% intra_speakers) |>
+  dplyr::mutate(path = case_when(speaker_id == "Sub32" ~ str_replace(path, "\\.TextGrid$", "_MC_intra.TextGrid"),
+                                 speaker_id == "Sub36" ~ str_replace(path, "\\.TextGrid$", "_MC_intra.TextGrid"),
+                                 speaker_id == "Sub47" ~ str_replace(path, "\\.TextGrid$", "_MC_intra.TextGrid"),
+                                 TRUE ~ str_replace(path, "\\.TextGrid$", "_MH_intra.TextGrid")))
+
+## Extracting speakers who have inter-reliability segmentations
+inter_speakers <- c("Sub28", "Sub36", "Sub38", "Sub39", "Sub41", "Sub49_2", 
+                    "Sub50", "Sub53", "Sub59")
+
+inter <- textgrid_paths |>
+  dplyr::filter(speaker_id %in% inter_speakers) |>
+  dplyr::mutate(path = case_when(speaker_id == "Sub38" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 speaker_id == "Sub39" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 speaker_id == "Sub41" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 speaker_id == "Sub50" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 speaker_id == "Sub59" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 TRUE ~ str_replace(path, "\\.TextGrid$", "_MH_inter.TextGrid")))
+
+## Meging inter- and intra-rater reliability back with main textgrid df
+
+textgrid_paths <- rbind(textgrid_paths, intra)
+textgrid_paths <- rbind(textgrid_paths, inter)
+
 ## Loading Textgrids
 loadData <- function(path, speaker) {
   
