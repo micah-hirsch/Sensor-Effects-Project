@@ -279,3 +279,93 @@ sjPlot::tab_model(VSA_model)
 
 # Spectral Moment Analysis
 
+## Reliability
+
+### Interrater Reliability
+
+M1
+
+```{r}
+
+moment_mod <- consonants |>
+  dplyr::select(speaker_id, group, sex, age, time_point, seg_type, consonant, m1, m2) |>
+  dplyr::group_by(speaker_id, time_point, consonant, seg_type) |>
+  dplyr::summarize(M1 = mean(m1), M2 = mean(m2)) |>
+  dplyr::ungroup() |>
+  dplyr::left_join(speakers, by = "speaker_id")
+  
+
+M1_rel <- moment_mod|>
+  dplyr::select(speaker_id, group, sex, age, time_point, seg_type, consonant, M1) |>
+  tidyr::pivot_wider(names_from = seg_type,
+                     values_from = M1)
+
+
+M1_inter <- M1_rel |>
+  dplyr::select(-intrarater) |>
+  dplyr::filter(!is.na(interrater))
+
+cor.test(M1_inter$initial, M1_inter$interrater, method = "pearson", use = "complete.obs")
+
+```
+M2
+
+```{r}
+
+M2_rel <- moment_mod|>
+  dplyr::select(speaker_id, group, sex, age, time_point, seg_type, consonant, M2) |>
+  tidyr::pivot_wider(names_from = seg_type,
+                     values_from = M2)
+
+
+M2_inter <- M2_rel |>
+  dplyr::select(-intrarater) |>
+  dplyr::filter(!is.na(interrater))
+
+cor.test(M2_inter$initial, M2_inter$interrater, method = "pearson", use = "complete.obs")
+
+```
+
+
+### Intrarater
+
+M1
+
+```{r}
+
+M1_intra <- M1_rel |>
+  dplyr::select(-interrater) |>
+  dplyr::filter(!is.na(intrarater))
+
+cor.test(M1_intra$initial, M1_intra$intrarater, method = "pearson", use = "complete.obs")
+
+```
+
+M2
+
+```{r}
+
+M2_intra <- M2_rel |>
+  dplyr::select(-interrater) |>
+  dplyr::filter(!is.na(intrarater))
+
+cor.test(M2_intra$initial, M2_intra$intrarater, method = "pearson", use = "complete.obs")
+
+```
+
+## Descriptives
+
+```{r}
+
+
+```
+
+
+## Plot
+
+```{r}
+
+
+
+```
+
