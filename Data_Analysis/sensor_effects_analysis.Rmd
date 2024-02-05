@@ -115,6 +115,8 @@ ar_des <- artic_rate |>
 
 ```{r}
 
+my_pal <- natparks.pals("Denali", 6)
+
 overall_ar <- ar_des |>
   dplyr::group_by(group, time_point) |>
   dplyr::summarize(artic_rate = mean(artic_rate_m), sd = sd(artic_rate_m), se = sd/sqrt(n())) |>
@@ -131,6 +133,7 @@ artic_rate_plot <- overall_ar |>
   geom_errorbar(aes(ymin = artic_rate - se, ymax = artic_rate + se)) +
   labs(x = "Time Point",
        y = "Articulation Rate (syl/s)") +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
   theme_classic()
 
 artic_rate_plot
@@ -147,7 +150,6 @@ ar_model <- lmer(artic_rate_m ~ time_point*group + (1|speaker_id), data = ar_des
 summary(ar_model)
 
 sjPlot::tab_model(ar_model)
-
 
 ```
 
