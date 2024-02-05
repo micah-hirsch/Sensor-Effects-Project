@@ -1,0 +1,63 @@
+---
+title: "Sensor Effects Analysis"
+author: "Micah Hirsch"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Purpose
+
+The following report documents the data analysis conducted for the sensor effects project.
+
+All data analyses were conducted using R version 4.3.2.
+
+```{r}
+
+# Loading in the needed packages and data
+library(rio) # install.packages("rio") 
+library(tidyverse) # install.packages("tidyverse")
+library(geometry) # install.packages("geometry")
+library(patchwork) # install.packages("patchwork")
+library(NatParksPalettes) # install.packages("NatParksPalettes")
+library(glmmTMB) # install.packages("glmmTMB")
+library(emmeans) # install.packages("emmeans")
+library(lme4) # install.packages("lme4")
+library(lmerTest) # install.packages("lmerTest")
+
+vowels <- rio::import("vowel_measures.csv") |>
+  dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                group = factor(group, levels = c("Control", "PD")),
+                sex = factor(sex, levels = c("Male", "Female")),
+                vowel = factor(vowel, levels = c("i", "u", "ae", "a")),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
+
+consonants <- rio::import("consonant_measures.csv") |>
+   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                group = factor(group, levels = c("Control", "PD")),
+                sex = factor(sex, levels = c("Male", "Female")),
+                consonant = factor(consonant, levels = c("s", "sh")),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
+
+artic_rate <- rio::import("articulation_rate.csv") |>
+  dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                group = factor(group, levels = c("Control", "PD")), 
+                sex = factor(sex, levels = c("Male", "Female")),
+                phrase = as.factor(phrase),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
+
+```
+
+
+# Articulation Rate
+
+```{r}
+
+
+
+```
+
+
