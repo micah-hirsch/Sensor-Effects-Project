@@ -5,12 +5,12 @@
 # Purpose: To prepare acoustic variables of interest for the speakers for analysis.
 
 library(rio) # install.packages("rio")
-library(tidyverse) #install.packages("tidyverse")
+library(tidyverse) # install.packages("tidyverse")
 library(rPraat) # install.packages("rPraat")
 library(remotes) # install.packages("remotes")
 library(PraatR) # remotes:::install_github("usagi5886/PraatR")
-library(datadictionary) #install.packages("datadictionary")
-library(janitor) #install.packages("janitor")
+library(datadictionary) # install.packages("datadictionary")
+library(janitor) # install.packages("janitor")
 
 # Setting paths to import raw data and export cleaned data
 raw_wd <- "~/Documents/Github/Sensor-Effects-Project/Raw_Speaker_Data/"
@@ -46,6 +46,37 @@ textgrid_paths <- files |>
                       names_to = "timePoint",
                       values_to = "path") |>
   dplyr::mutate(path = paste(path, "TextGrid", sep = "."))
+
+## Extracting speakers who have intra-reliability segmentations
+intra_speakers <- c("Sub32", "Sub36", "Sub39", "Sub45", "Sub47", "Sub50", "Sub52", "Sub56")
+
+intra <- textgrid_paths |>
+  dplyr::filter(speaker_id %in% intra_speakers) |>
+  dplyr::mutate(path = case_when(speaker_id == "Sub32" ~ str_replace(path, "\\.TextGrid$", "_MC_intra.TextGrid"),
+                                 speaker_id == "Sub36" ~ str_replace(path, "\\.TextGrid$", "_MC_intra.TextGrid"),
+                                 speaker_id == "Sub47" ~ str_replace(path, "\\.TextGrid$", "_MC_intra.TextGrid"),
+                                 TRUE ~ str_replace(path, "\\.TextGrid$", "_MH_intra.TextGrid")))
+
+## Extracting speakers who have inter-reliability segmentations
+inter_speakers <- c("Sub28", "Sub36", "Sub38", "Sub39", "Sub41", "Sub49_2", 
+                    "Sub50", "Sub53", "Sub59")
+
+inter <- textgrid_paths |>
+  dplyr::filter(speaker_id %in% inter_speakers) |>
+  dplyr::mutate(path = case_when(speaker_id == "Sub38" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 speaker_id == "Sub39" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 speaker_id == "Sub41" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 speaker_id == "Sub50" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 speaker_id == "Sub59" ~ str_replace(path, "\\.TextGrid$", "_MC_inter.TextGrid"),
+                                 TRUE ~ str_replace(path, "\\.TextGrid$", "_MH_inter.TextGrid")))
+
+## Meging inter- and intra-rater reliability back with main textgrid df
+
+textgrid_paths <- rbind(textgrid_paths, intra)
+textgrid_paths <- rbind(textgrid_paths, inter)
+
+# Removing unneeded items from environment
+rm(inter, intra, inter_speakers, intra_speakers)
 
 ## Loading Textgrids
 loadData <- function(path, speaker) {
@@ -133,11 +164,16 @@ while (k <= nrow(files)) {
 } 
 
 Segments <- Segments |>
-  # Fixing human coding error
+  # Fixing human coding errors
   dplyr::mutate(Segment = case_when(Segment == "Phrase_3.2_9" ~ "Phrase3.2_9",
                                     Segment == "Phase3.3_10" ~ "Phrase3.3_10",
+                                    Segment == "Phrase_2.2_3" ~ "Phrase2.2_3",
                                     TRUE ~ Segment)) |>
-  dplyr::left_join(speakers, by = "speaker_id")
+  dplyr::left_join(speakers, by = "speaker_id") |>
+  dplyr::mutate(seg_type = case_when(str_detect(path, "_inter") ~ "interrater",
+                                     str_detect(path, "_intra") ~ "intrarater",
+                                     TRUE ~ "initial"))
+  
 
 ## Pulling out phrase segments
 phrases <- Segments |>
@@ -260,7 +296,9 @@ vowels <- vowels |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
                 sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
-                vowel = factor(vowel, levels = c("i", "u", "ae", "a")))
+                vowel = factor(vowel, levels = c("i", "u", "ae", "a")),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")),
+                age = as.numeric(age))
 
 ## Removing unneeded items from the environment
 
@@ -349,13 +387,15 @@ consonants <- consonants |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
                 sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
-                consonant = factor(consonant, levels = c("s", "sh")))
+                consonant = factor(consonant, levels = c("s", "sh")),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")),
+                age = as.numeric(age))
 
 # Articulation Rate
 
 artic_rate <- phrases |>
   dplyr::mutate(duration = offset - onset) |>
-  dplyr::group_by(speaker_id, timePoint, phrase) |>
+  dplyr::group_by(speaker_id, timePoint, phrase, seg_type) |>
   dplyr::summarize(artic_rate = sum(syllables)/sum(duration)) |>
   ungroup() |>
   janitor::clean_names() |>
@@ -364,5 +404,81 @@ artic_rate <- phrases |>
                 group = factor(group, levels = c("HC", "PD"), labels = c("Control", "PD")),
                 sex = factor(sex, levels = c("M", "F"), labels = c("Male", "Female")),
                 age = as.numeric(age),
-                phrase = as.factor(phrase))
+                phrase = as.factor(phrase),
+                seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
+## Removing unneeded items from environment
+rm(currentTarget, phonemes, sndWav, speakers, wav_paths, k, targetFile)
+
+# Exporting cleaned datasets
+
+## setting new working directory
+
+setwd(cleaned_wd)
+
+## Vowels Export
+
+rio::export(vowels, "vowel_measures.csv")
+
+### Labels for vowels data dictionary
+vowel_labels <- c(speaker_id = "Speaker ID",
+                  onset = "Onset of Vowel Segment (s)",
+                  offset = "Offset of Vowel Segment (s)",
+                  time_point = "Time Point of Recording",
+                  group = "Group",
+                  sex = "Sex",
+                  age = "Age",
+                  seg_type = "Segment Type",
+                  vowel = "Corner Vowel",
+                  f1 = "Formant 1",
+                  f2 = "Formant 2")
+
+vowel_dict <- datadictionary::create_dictionary(vowels, var_labels = vowel_labels)
+
+### Exporting vowel data dictionary
+rio::export(vowel_dict, "vowel_measures_dictionary.csv")
+
+## Consonants Export
+
+rio::export(consonants, "consonant_measures.csv")
+
+### Labels for consonant data dictionary
+consonant_labels <- c(speaker_id = "Speaker ID",
+                      onset = "Onset of Vowel Segment (s)",
+                      offset = "Offset of Vowel Segment (s)",
+                      time_point = "Time Point of Recording",
+                      group = "Group",
+                      sex = "Sex",
+                      age = "Age",
+                      seg_type = "Segment Type",
+                      consonant = "Consonant",
+                      m1 = "Spectral Moment M1",
+                      m2 = "Spectral Moment M2",
+                      m1_p = "M1 Power Distribution",
+                      m2_p = "M2 Power Distribution")
+
+consonant_dict <- datadictionary::create_dictionary(consonants, var_labels = consonant_labels)
+
+rio::export(consonant_dict, "consonant_measures_dictionary.csv")
+
+## Artic Rate Export
+
+rio::export(artic_rate, "articulation_rate.csv")
+
+### Labels for artic rate data dictionary
+
+artic_rate_labels <- c(speaker_id = "Speaker ID",
+                       time_point = "Time Point of Recording",
+                       phrase = "Phrase from Caterpillar Passage",
+                       seg_type = "Segment Type",
+                       artic_rate = "Articulation Rate (syll/s)",
+                       group = "Group",
+                       sex = "Sex",
+                       age = "Age")
+
+artic_rate_dict <- datadictionary::create_dictionary(artic_rate, var_labels = artic_rate_labels)
+
+rio::export(artic_rate_dict, "articulation_rate_dictionary.csv")
+
+# clear environment
+rm(list=ls())
