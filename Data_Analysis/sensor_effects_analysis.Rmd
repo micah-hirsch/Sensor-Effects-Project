@@ -27,6 +27,9 @@ library(glmmTMB) # install.packages("glmmTMB")
 library(emmeans) # install.packages("emmeans")
 library(lme4) # install.packages("lme4")
 library(lmerTest) # install.packages("lmerTest")
+library(gt) # install.packages("gt")
+library(gtsummary) # install.packages("gtsummary")
+library(sjPlot) # install.packages("sjPlot")
 
 vowels <- rio::import("vowel_measures.csv") |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
@@ -49,15 +52,112 @@ artic_rate <- rio::import("articulation_rate.csv") |>
                 phrase = as.factor(phrase),
                 seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
+speakers <- artic_rate |>
+  dplyr::select(speaker_id, group, sex, age) |>
+  dplyr::distinct()
+
 ```
 
 
 # Articulation Rate
 
+## Reliability
+
+### Interrater Reliability
+
 ```{r}
 
+artic_rate_rel <- artic_rate |>
+  tidyr::pivot_wider(names_from = seg_type,
+                     values_from = artic_rate)
+
+ar_inter <- artic_rate_rel |>
+  dplyr::select(-intrarater) |>
+  dplyr::filter(!is.na(interrater))
+
+cor.test(ar_inter$initial, ar_inter$interrater, method = "pearson", use = "complete.obs")
+
+```
+
+### Intrarater Reliability
+
+```{r}
+
+ar_intra <- artic_rate_rel |>
+  dplyr::select(-interrater) |>
+  dplyr::filter(!is.na(intrarater))
+
+cor.test(ar_intra$initial, ar_intra$intrarater, method = "pearson", use = "complete.obs")
+
+```
+
+```{r}
+
+rm(ar_inter, ar_intra, artic_rate_rel)
+
+```
+
+
+## Descriptives
+
+```{r}
+
+ar_des <- artic_rate |>
+  dplyr::filter(seg_type == "initial") |>
+  dplyr::group_by(speaker_id, time_point) |>
+  dplyr::summarize(artic_rate_m = mean(artic_rate)) |>
+  dplyr::left_join(speakers, by = "speaker_id")
+
+```
+
+
+## Plot
+
+```{r}
+
+overall_ar <- ar_des |>
+  dplyr::group_by(group, time_point) |>
+  dplyr::summarize(artic_rate = mean(artic_rate_m), sd = sd(artic_rate_m), se = sd/sqrt(n())) |>
+  dplyr::ungroup()
+
+artic_rate_plot <- overall_ar |>
+  ggplot() +
+  aes(x = time_point,
+      y = artic_rate,
+      color = group,
+      group = group) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin = artic_rate - se, ymax = artic_rate + se)) +
+  labs(x = "Time Point",
+       y = "Articulation Rate (syl/s)") +
+  theme_classic()
+
+artic_rate_plot
+
+```
+
+## Model
+
+### Model Summary
+
+```{r}
+
+ar_model <- lmer(artic_rate_m ~ time_point*group + (1|speaker_id), data = ar_des)
+summary(ar_model)
+
+sjPlot::tab_model(ar_model)
 
 
 ```
 
+
+### Pairwise Comparisons
+
+```{r}
+
+emm_artic_rate <- emmeans(ar_model, specs = pairwise ~ time_point:group)
+emm_artic_rate$contrasts
+
+```
 
