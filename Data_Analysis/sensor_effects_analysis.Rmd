@@ -163,3 +163,119 @@ emm_artic_rate$contrasts
 
 ```
 
+```{r}
+
+rm(ar_model, ar_des, emm_artic_rate, overall_ar)
+
+```
+
+
+# Vowel Space Area
+
+## Reliability
+
+### Interrater Reliability
+
+```{r}
+
+VSA_coords <- vowels |>
+  dplyr::group_by(speaker_id, time_point, vowel, seg_type) |>
+  dplyr::summarize(F1 = mean(f1),
+                   F2 = mean(f2)) |>
+  dplyr::ungroup()
+
+VSA <- VSA_coords |>
+  dplyr::group_by(speaker_id, time_point, seg_type) |>
+  dplyr::mutate(VSA = (geometry::polyarea(F1, F2))/1000) |> # Converted to kHz
+  dplyr::select(!c(vowel, F1, F2)) |>
+  dplyr::distinct() |>
+  dplyr::left_join(speakers, by = "speaker_id")
+
+VSA_rel <- VSA |>
+  tidyr::pivot_wider(names_from = seg_type,
+                     values_from = VSA)
+
+VSA_inter <- VSA_rel |>
+  dplyr::select(-intrarater) |>
+  dplyr::filter(!is.na(interrater))
+
+cor.test(VSA_inter$initial, VSA_inter$interrater, method = "pearson", use = "complete.obs")
+
+```
+### Intrarater Reliability
+
+```{r}
+
+VSA_intra <- VSA_rel |>
+  dplyr::select(-interrater) |>
+  dplyr::filter(!is.na(intrarater))
+
+cor.test(VSA_intra$initial, VSA_intra$intrarater, method = "pearson", use = "complete.obs")
+
+```
+
+```{r}
+
+rm(VSA_rel, VSA_intra, VSA_inter, VSA_coords)
+
+```
+
+
+## Descriptives
+
+```{r}
+
+VSA_mod <- VSA |>
+  dplyr::filter(seg_type == "initial")
+
+```
+
+
+## Plot
+
+```{r}
+
+VSA_overall <- VSA_mod |>
+  dplyr::group_by(group, time_point) |>
+  dplyr::summarize(VSA_mean = mean(VSA), VSA_sd = sd(VSA), se = VSA_sd/sqrt(n()))
+
+VSA_plot <- VSA_overall |>
+  ggplot() +
+  aes(x = time_point,
+      y = VSA_mean,
+      group = group,
+      color = group) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(
+    aes(
+      ymin = VSA_mean - se,
+      ymax = VSA_mean + se),
+    width = .1
+    ) +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  labs(
+    x = "",
+    y = bquote('Vowel Space Area '(kHz^2))) +
+  theme_classic() +
+  theme(aspect.ratio = 1)
+
+VSA_plot
+
+```
+
+## Model
+
+### Model Summary
+
+```{r}
+
+VSA_model <- lmer(VSA ~ time_point*group + (1|speaker_id), data = VSA_mod)
+summary(VSA_model)
+
+sjPlot::tab_model(VSA_model)
+
+```
+
+# Spectral Moment Analysis
+
