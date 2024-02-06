@@ -2,7 +2,11 @@
 title: "Sensor Effects Analysis"
 author: "Micah Hirsch"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +19,7 @@ The following report documents the data analysis conducted for the sensor effect
 
 All data analyses were conducted using R version 4.3.2.
 
-```{r}
+```{r, echo = F, warning = F, message = F}
 
 # Loading in the needed packages and data
 library(rio) # install.packages("rio") 
@@ -65,7 +69,7 @@ speakers <- artic_rate |>
 
 ### Interrater Reliability
 
-```{r}
+```{r, warning = F, message = F}
 
 artic_rate_rel <- artic_rate |>
   tidyr::pivot_wider(names_from = seg_type,
@@ -81,7 +85,7 @@ cor.test(ar_inter$initial, ar_inter$interrater, method = "pearson", use = "compl
 
 ### Intrarater Reliability
 
-```{r}
+```{r, warning = F, message = F}
 
 ar_intra <- artic_rate_rel |>
   dplyr::select(-interrater) |>
@@ -91,7 +95,7 @@ cor.test(ar_intra$initial, ar_intra$intrarater, method = "pearson", use = "compl
 
 ```
 
-```{r}
+```{r, echo = F, warning = F, message = F}
 
 rm(ar_inter, ar_intra, artic_rate_rel)
 
@@ -100,16 +104,16 @@ rm(ar_inter, ar_intra, artic_rate_rel)
 
 ## Descriptives
 
-```{r}
+```{r, warning = F, message = F}
 
-ar_des <- artic_rate |>
+ar_mod <- artic_rate |>
   dplyr::filter(seg_type == "initial") |>
   dplyr::group_by(speaker_id, time_point) |>
   dplyr::summarize(artic_rate_m = mean(artic_rate)) |>
   dplyr::left_join(speakers, by = "speaker_id") |>
   ungroup()
 
-ar_des |>
+ar_mod |>
   dplyr::select(c(group, time_point, artic_rate_m)) |>
   tbl_strata(
     strata = group,
@@ -117,7 +121,8 @@ ar_des |>
       tbl_summary(
         by = time_point,
         statistic = list(all_continuous() ~ c("{mean} ({sd})")),
-        digits = all_continuous() ~ 2
+        digits = all_continuous() ~ 2,
+        label = list(artic_rate_m ~ "Articulation Rate")
       ))
 
 ```
@@ -125,11 +130,11 @@ ar_des |>
 
 ## Plot
 
-```{r}
+```{r, warning = F, message = F}
 
 my_pal <- natparks.pals("Denali", 6)
 
-overall_ar <- ar_des |>
+overall_ar <- ar_mod |>
   dplyr::group_by(group, time_point) |>
   dplyr::summarize(artic_rate = mean(artic_rate_m), sd = sd(artic_rate_m), se = sd/sqrt(n())) |>
   dplyr::ungroup()
@@ -156,9 +161,9 @@ artic_rate_plot
 
 ### Model Summary
 
-```{r}
+```{r, warning = F, message = F}
 
-ar_model <- lmer(artic_rate_m ~ time_point*group + (1|speaker_id), data = ar_des)
+ar_model <- lmer(artic_rate_m ~ time_point*group + (1|speaker_id), data = ar_mod)
 summary(ar_model)
 
 sjPlot::tab_model(ar_model)
@@ -168,16 +173,16 @@ sjPlot::tab_model(ar_model)
 
 ### Pairwise Comparisons
 
-```{r}
+```{r, warning = F, message = F}
 
 emm_artic_rate <- emmeans(ar_model, specs = pairwise ~ time_point:group)
 emm_artic_rate$contrasts
 
 ```
 
-```{r}
+```{r, warning = F, message = F}
 
-rm(ar_model, ar_des, emm_artic_rate, overall_ar)
+rm(ar_model, ar_mod, emm_artic_rate, overall_ar)
 
 ```
 
@@ -188,7 +193,7 @@ rm(ar_model, ar_des, emm_artic_rate, overall_ar)
 
 ### Interrater Reliability
 
-```{r}
+```{r, warning = F, message = F}
 
 VSA_coords <- vowels |>
   dplyr::group_by(speaker_id, time_point, vowel, seg_type) |>
@@ -217,7 +222,7 @@ cor.test(VSA_inter$initial, VSA_inter$interrater, method = "pearson", use = "com
 ```
 ### Intrarater Reliability
 
-```{r}
+```{r, warning = F, message = F}
 
 VSA_intra <- VSA_rel |>
   dplyr::select(-interrater) |>
@@ -227,7 +232,7 @@ cor.test(VSA_intra$initial, VSA_intra$intrarater, method = "pearson", use = "com
 
 ```
 
-```{r}
+```{r, echo = F, warning = F, message = F}
 
 rm(VSA_rel, VSA_intra, VSA_inter, VSA_coords)
 
@@ -236,7 +241,7 @@ rm(VSA_rel, VSA_intra, VSA_inter, VSA_coords)
 
 ## Descriptives
 
-```{r}
+```{r, warning = F, message = F}
 
 VSA_mod <- VSA |>
   dplyr::filter(seg_type == "initial")
@@ -257,7 +262,7 @@ VSA_mod |>
 
 ## Plot
 
-```{r}
+```{r, warning = F, message = F}
 
 VSA_overall <- VSA_mod |>
   dplyr::group_by(group, time_point) |>
@@ -292,7 +297,7 @@ VSA_plot
 
 ### Model Summary
 
-```{r}
+```{r, warning = F, message = F}
 
 VSA_model <- lmer(VSA ~ time_point*group + (1|speaker_id), data = VSA_mod)
 summary(VSA_model)
@@ -307,9 +312,9 @@ sjPlot::tab_model(VSA_model)
 
 ### Interrater Reliability
 
-M1
+#### M1
 
-```{r}
+```{r, warning = F, message = F}
 
 moment_mod <- consonants |>
   dplyr::select(speaker_id, group, sex, age, time_point, seg_type, consonant, m1, m2) |>
@@ -332,9 +337,9 @@ M1_inter <- M1_rel |>
 cor.test(M1_inter$initial, M1_inter$interrater, method = "pearson", use = "complete.obs")
 
 ```
-M2
+#### M2
 
-```{r}
+```{r, warning = F, message = F}
 
 M2_rel <- moment_mod|>
   dplyr::select(speaker_id, group, sex, age, time_point, seg_type, consonant, M2) |>
@@ -353,9 +358,9 @@ cor.test(M2_inter$initial, M2_inter$interrater, method = "pearson", use = "compl
 
 ### Intrarater
 
-M1
+#### M1
 
-```{r}
+```{r, warning = F, message = F}
 
 M1_intra <- M1_rel |>
   dplyr::select(-interrater) |>
@@ -365,9 +370,9 @@ cor.test(M1_intra$initial, M1_intra$intrarater, method = "pearson", use = "compl
 
 ```
 
-M2
+#### M2
 
-```{r}
+```{r, warning = F, message = F}
 
 M2_intra <- M2_rel |>
   dplyr::select(-interrater) |>
@@ -379,9 +384,9 @@ cor.test(M2_intra$initial, M2_intra$intrarater, method = "pearson", use = "compl
 
 ## Descriptives
 
-Spectral Moment Coefficient for /s/
+### Spectral Moment Coefficient for /s/
 
-```{r}
+```{r, warning = F, message = F}
 
 moment_mod <- moment_mod |>
   dplyr::filter(seg_type == "initial")
@@ -400,9 +405,9 @@ moment_mod |>
 
 ```
 
-Spectral Moment for /sh/
+### Spectral Moment for /sh/
 
-```{r}
+```{r, warning = F, message = F}
 
 moment_mod |>
   dplyr::filter(consonant == "sh") |>
@@ -423,7 +428,7 @@ moment_mod |>
 
 ### M1
 
-```{r}
+```{r, warning = F, message = F}
 
 M1_des <- moment_mod |>
   dplyr::group_by(group, time_point, consonant) |>
@@ -450,7 +455,7 @@ M1_des |>
 
 ### M2
 
-```{r}
+```{r, warning = F, message = F}
 
 M2_des <- moment_mod |>
   dplyr::group_by(group, time_point, consonant) |>
@@ -477,32 +482,68 @@ M2_des |>
 
 ### Spectral Moment Coefficient for /s/
 
-M1
+#### M1
 
-```{r}
+```{r, warning = F, message = F}
+
+moment_mod_s <- moment_mod |>
+  dplyr::filter(consonant == "s")
+
+M1_s_mod <- lmer(M1 ~ time_point*group + (1|speaker_id), data = moment_mod_s)
+summary(M1_s_mod)
+
+sjPlot::tab_model(M1_s_mod)
 
 ```
 
 
-M2
-
 ```{r}
+
+emm_M1_s <- emmeans(M1_s_mod, specs = pairwise ~ time_point:group)
+emm_M1_s$contrasts
+
+```
+
+
+
+#### M2
+
+```{r, warning = F, message = F}
+
+
+M2_s_mod <- lmer(M2 ~ time_point*group + (1|speaker_id), data = moment_mod_s)
+summary(M2_s_mod)
+
+sjPlot::tab_model(M2_s_mod)
 
 ```
 
 
 ### Spectral Moment Coefficient for /sh/
 
-M1 
+#### M1 
 
-```{r}
+```{r, warning = F, message = F}
+
+moment_mod_sh <- moment_mod |>
+  dplyr::filter(consonant == "sh")
+
+M1_sh_mod <- lmer(M1 ~ time_point*group + (1|speaker_id), data = moment_mod_sh)
+summary(M1_sh_mod)
+
+sjPlot::tab_model(M1_sh_mod)
 
 ```
 
 
-M2
+#### M2
 
-```{r}
+```{r, warning = F, message = F}
+
+M2_sh_mod <- lmer(M2 ~ time_point*group + (1|speaker_id), data = moment_mod_sh)
+summary(M2_sh_mod)
+
+sjPlot::tab_model(M2_sh_mod)
 
 ```
 
