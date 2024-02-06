@@ -106,7 +106,19 @@ ar_des <- artic_rate |>
   dplyr::filter(seg_type == "initial") |>
   dplyr::group_by(speaker_id, time_point) |>
   dplyr::summarize(artic_rate_m = mean(artic_rate)) |>
-  dplyr::left_join(speakers, by = "speaker_id")
+  dplyr::left_join(speakers, by = "speaker_id") |>
+  ungroup()
+
+ar_des |>
+  dplyr::select(c(group, time_point, artic_rate_m)) |>
+  tbl_strata(
+    strata = group,
+    ~.x |>
+      tbl_summary(
+        by = time_point,
+        statistic = list(all_continuous() ~ c("{mean} ({sd})")),
+        digits = all_continuous() ~ 2
+      ))
 
 ```
 
@@ -189,7 +201,8 @@ VSA <- VSA_coords |>
   dplyr::mutate(VSA = (geometry::polyarea(F1, F2))/1000) |> # Converted to kHz
   dplyr::select(!c(vowel, F1, F2)) |>
   dplyr::distinct() |>
-  dplyr::left_join(speakers, by = "speaker_id")
+  dplyr::left_join(speakers, by = "speaker_id") |>
+  ungroup()
 
 VSA_rel <- VSA |>
   tidyr::pivot_wider(names_from = seg_type,
@@ -227,6 +240,17 @@ rm(VSA_rel, VSA_intra, VSA_inter, VSA_coords)
 
 VSA_mod <- VSA |>
   dplyr::filter(seg_type == "initial")
+
+VSA_mod |>
+  dplyr::select(c(group, time_point, VSA)) |>
+  tbl_strata(
+    strata = group,
+    ~.x |>
+      tbl_summary(
+        by = time_point,
+        statistic = list(all_continuous() ~ c("{mean} ({sd})")),
+        digits = all_continuous() ~ 2
+      ))
 
 ```
 
@@ -355,17 +379,130 @@ cor.test(M2_intra$initial, M2_intra$intrarater, method = "pearson", use = "compl
 
 ## Descriptives
 
+Spectral Moment Coefficient for /s/
+
 ```{r}
 
+moment_mod <- moment_mod |>
+  dplyr::filter(seg_type == "initial")
+
+moment_mod |>
+  dplyr::filter(consonant == "s") |>
+  dplyr::select(c(group, time_point, M1, M2)) |>
+  tbl_strata(
+    strata = group,
+    ~.x |>
+      tbl_summary(
+        by = time_point,
+        statistic = list(all_continuous() ~ c("{mean} ({sd})")),
+        digits = all_continuous() ~ 2
+      ))
+
+```
+
+Spectral Moment for /sh/
+
+```{r}
+
+moment_mod |>
+  dplyr::filter(consonant == "sh") |>
+  dplyr::select(c(group, time_point, M1, M2)) |>
+  tbl_strata(
+    strata = group,
+    ~.x |>
+      tbl_summary(
+        by = time_point,
+        statistic = list(all_continuous() ~ c("{mean} ({sd})")),
+        digits = all_continuous() ~ 2
+      ))
 
 ```
 
 
 ## Plot
 
+### M1
+
 ```{r}
 
+M1_des <- moment_mod |>
+  dplyr::group_by(group, time_point, consonant) |>
+  dplyr::summarize(Mean_M1 = mean(M1), sd = sd(M1), se = sd/sqrt(n()))
 
+M1_des |>
+  ggplot() +
+  aes(x = time_point,
+      y = Mean_M1,
+      group = group,
+      color = group) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = Mean_M1 - se, ymax = Mean_M1 + se), width = 0.1) +
+  labs(x = "",
+       y = "M1 (kHz)") +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  facet_wrap("consonant") +
+  theme_classic() +
+  theme(aspect.ratio = 1)
+
+```
+
+
+### M2
+
+```{r}
+
+M2_des <- moment_mod |>
+  dplyr::group_by(group, time_point, consonant) |>
+  dplyr::summarize(Mean_M2 = mean(M2), sd = sd(M2), se = sd/sqrt(n()))
+
+M2_des |>
+  ggplot() +
+  aes(x = time_point,
+      y = Mean_M2,
+      group = group,
+      color = group) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = Mean_M2 - se, ymax = Mean_M2 + se), width = 0.1) +
+  labs(x = "",
+       y = "M2 (kHz)") +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  facet_wrap("consonant") +
+  theme_classic() +
+  theme(aspect.ratio = 1)
+
+```
+## Models
+
+### Spectral Moment Coefficient for /s/
+
+M1
+
+```{r}
+
+```
+
+
+M2
+
+```{r}
+
+```
+
+
+### Spectral Moment Coefficient for /sh/
+
+M1 
+
+```{r}
+
+```
+
+
+M2
+
+```{r}
 
 ```
 
