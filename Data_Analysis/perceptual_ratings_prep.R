@@ -40,13 +40,13 @@ for (file in file_list) {
     dplyr::filter(object_name == "intelligibility rating" | object_name == "naturalness rating") |>
     dplyr::mutate(rating = case_when(object_name == "intelligibility rating" ~ store_intel,
                                      TRUE ~ store_nat),
-                  rating_type = case_when(spreadsheet_block == 1 ~ "initial",
+                  reliability = case_when(spreadsheet_block == 1 ~ "initial",
                                           spreadsheet_block == 3 ~ "initial",
                                           TRUE ~ "reliability"),
-                  percep_rating = case_when(object_name == "intelligibility rating" ~ "intelligibility",
+                  rating_type = case_when(object_name == "intelligibility rating" ~ "intelligibility",
                                             TRUE ~ "naturalness")) |>
     dplyr::select(c(participant_private_id, task_name, trial_number, spreadsheet_speaker, spreadsheet_time, 
-                    spreadsheet_section, rating:percep_rating))
+                    spreadsheet_section, rating:rating_type))
   
   ## Add each dataset to the empty data list
   data_list[[length(data_list)+1]] <- data
@@ -71,15 +71,15 @@ percep_data <- percep_data |>
                 counterbalance = as.factor(counterbalance),
                 speaker_id = str_replace(speaker_id, "\\*", ""),
                 time_point = factor(time_point, levels = c("before", "sensors", "after")),
-                rating_type = factor(rating_type, levels = c("initial", "reliability")),
-                percep_rating = factor(percep_rating, levels = c("intelligibility", "naturalness")))
+                reliability = factor(reliability, levels = c("initial", "reliability")),
+                rating_type = factor(rating_type, levels = c("intelligibility", "naturalness")))
 
 # Loading in listener demographics
 
 ## Set working directory to raw demographics file
-
 setwd(demo_wd)
 
+## Loading and cleaning listener demographic df
 listener_demo <- rio::import("listener_demo_raw.csv") |>
   janitor::clean_names() |>
   dplyr::select(c(participant_private_id, object_name, key, response)) |>
