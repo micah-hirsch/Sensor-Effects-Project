@@ -1,0 +1,26 @@
+item,label,class,summary,value
+"","","",Rows in dataset,53
+"","","",Columns in dataset,6
+listener_id,Listener ID,integer,mean,10251658
+"","","",median,10247720
+"","","",min,10235098
+"","","",max,10281250
+"","","",missing,0
+english,Fluent in English,factor,Yes (1),53
+"","","",missing,0
+age,Age,numeric,mean,21
+"","","",median,20
+"","","",min,18
+"","","",max,23
+"","","",missing,0
+gender,Gender,factor,Woman (1),53
+"","","",missing,0
+race,Race,factor,Asian American (1),1
+"","","",Biracial or Multiracial (2),3
+"","","",Prefer not to say (3),1
+"","","",White/Caucasian (4),48
+"","","",missing,0
+ethnicity,Ethnicity,factor,Hispanic/Latino (1),10
+"","","",Not Hispanic/Latino (2),41
+"","","",Prefer not to say (3),2
+"","","",missing,0

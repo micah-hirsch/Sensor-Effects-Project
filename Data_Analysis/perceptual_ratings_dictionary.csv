@@ -1,0 +1,54 @@
+item,label,class,summary,value
+"","","",Rows in dataset,2226
+"","","",Columns in dataset,9
+listener_id,Listener ID,integer,mean,10251658
+"","","",median,10247720
+"","","",min,10235098
+"","","",max,10281250
+"","","",missing,0
+counterbalance,Counterbalance List,factor,1a (1),210
+"","","",1b (2),84
+"","","",2a (3),210
+"","","",2b (4),126
+"","","",3a (5),126
+"","","",3b (6),126
+"","","",4a (7),42
+"","","",4b (8),84
+"","","",5a (9),126
+"","","",5b (10),168
+"","","",6a (11),210
+"","","",6b (12),126
+"","","",7a (13),84
+"","","",7b (14),42
+"","","",8a (15),84
+"","","",8b (16),126
+"","","",9a (17),126
+"","","",9b (18),126
+"","","",missing,0
+trial_number,Trial Number in Block,integer,mean,11
+"","","",median,11
+"","","",min,1
+"","","",max,21
+"","","",missing,0
+speaker_id,Speaker ID,character,unique responses,34
+"","","",missing,0
+time_point,Recording Time Point,factor,before (1),716
+"","","",sensors (2),756
+"","","",after (3),754
+"","","",missing,0
+cp_section,Section of the Caterpillar Passage Presented to Listener,integer,mean,2
+"","","",median,2
+"","","",min,1
+"","","",max,3
+"","","",missing,0
+rating,VAS Rating,integer,mean,77
+"","","",median,91
+"","","",min,0
+"","","",max,100
+"","","",missing,0
+reliability,Reliability,factor,initial (1),1802
+"","","",reliability (2),424
+"","","",missing,0
+rating_type,Rating Type,factor,intelligibility (1),1113
+"","","",naturalness (2),1113
+"","","",missing,0

@@ -95,4 +95,40 @@ listener_demo <- rio::import("listener_demo_raw.csv") |>
                 race = as.factor(race),
                 ethnicity = as.factor(ethnicity))
 
+# Exporting Data
 
+## Set working directory
+setwd(save_wd)
+
+## Perceptual Ratings
+rio::export(percep_data, "perceptual_ratings.csv")
+
+## Data dictionary for perceptual ratings
+percep_labels <- c(listener_id = "Listener ID",
+                   counterbalance = "Counterbalance List",
+                   trial_number = "Trial Number in Block",
+                   speaker_id = "Speaker ID",
+                   time_point = "Recording Time Point",
+                   cp_section = "Section of the Caterpillar Passage Presented to Listener",
+                   rating = "VAS Rating",
+                   reliability = "Reliability",
+                   rating_type = "Rating Type")
+
+percep_data_dict <- datadictionary::create_dictionary(percep_data, var_labels = percep_labels)
+
+rio::export(percep_data_dict, "perceptual_ratings_dictionary.csv")
+
+## Listener Demographics
+rio::export(listener_demo, "listener_demographics.csv")
+
+## Listener Demographics Data Dictionary
+listener_labels <- c(listener_id = "Listener ID",
+                     english = "Fluent in English",
+                     age = "Age",
+                     gender = "Gender",
+                     race = "Race",
+                     ethnicity = "Ethnicity")
+
+listener_demo_dict <- datadictionary::create_dictionary(listener_demo, var_labels = listener_labels)
+
+rio::export(listener_demo_dict, "listener_demographics_dictionary.csv")
