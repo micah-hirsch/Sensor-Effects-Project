@@ -74,4 +74,25 @@ percep_data <- percep_data |>
                 rating_type = factor(rating_type, levels = c("initial", "reliability")),
                 percep_rating = factor(percep_rating, levels = c("intelligibility", "naturalness")))
 
+# Loading in listener demographics
+
+## Set working directory to raw demographics file
+
+setwd(demo_wd)
+
+listener_demo <- rio::import("listener_demo_raw.csv") |>
+  janitor::clean_names() |>
+  dplyr::select(c(participant_private_id, object_name, key, response)) |>
+  dplyr::filter(key == "value") |>
+  dplyr::select(!key) |>
+  tidyr::pivot_wider(names_from = object_name,
+                     values_from = response) |>
+  dplyr::select(!location) |>
+  dplyr::rename(listener_id = participant_private_id) |>
+  dplyr::mutate(english = as.factor(english),
+                age = as.numeric(age),
+                gender = as.factor(gender),
+                race = as.factor(race),
+                ethnicity = as.factor(ethnicity))
+
 
