@@ -60,6 +60,19 @@ speakers <- artic_rate |>
   dplyr::select(speaker_id, group, sex, age) |>
   dplyr::distinct()
 
+perceptual_data <- rio::import("perceptual_ratings.csv") |>
+  dplyr::mutate(counterbalance = as.factor(counterbalance),
+                time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                reliability = factor(reliability, levels = c("initial", "reliability")),
+                rating_type = factor(rating_type, levels = c("intelligibility", "naturalness")))
+
+listener_demo <- rio::import("listener_demographics.csv") |>
+  dplyr::mutate(english = as.factor(english),
+                age = as.numeric(age),
+                gender = as.factor(gender),
+                race = as.factor(race),
+                ethnicity = as.factor(ethnicity))
+
 ```
 
 
@@ -544,6 +557,37 @@ M2_sh_mod <- lmer(M2 ~ time_point*group + (1|speaker_id), data = moment_mod_sh)
 summary(M2_sh_mod)
 
 sjPlot::tab_model(M2_sh_mod)
+
+```
+
+# Listener Demographics
+
+```{r}
+
+listener_demo |>
+  select(-c(listener_id, english)) |>
+  tbl_summary(type = list(age ~ "continuous",
+                          gender ~ "categorical",
+                          race ~ "categorical",
+                          ethnicity ~ "categorical"),
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{n} ({p}%)"),
+              digits = list(everything() ~ c(2)),
+              label = list(age ~ "Age",
+                           gender ~ "Gender",
+                           race ~ "Race",
+                           ethnicity ~ "Ethnicity"))
+
+```
+
+
+# Intelligibility
+
+## Intrarater Reliability
+
+```{r}
+
+
 
 ```
 
