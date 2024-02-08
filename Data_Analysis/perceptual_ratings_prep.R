@@ -132,3 +132,6 @@ listener_labels <- c(listener_id = "Listener ID",
 listener_demo_dict <- datadictionary::create_dictionary(listener_demo, var_labels = listener_labels)
 
 rio::export(listener_demo_dict, "listener_demographics_dictionary.csv")
+
+# Clear Environment
+rm(list=ls())

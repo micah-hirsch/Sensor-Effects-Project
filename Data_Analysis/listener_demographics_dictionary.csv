@@ -1,26 +1,27 @@
 item,label,class,summary,value
-"","","",Rows in dataset,53
+"","","",Rows in dataset,79
 "","","",Columns in dataset,6
-listener_id,Listener ID,integer,mean,10251658
-"","","",median,10247720
+listener_id,Listener ID,integer,mean,10267837
+"","","",median,10263146
 "","","",min,10235098
-"","","",max,10281250
+"","","",max,10318669
 "","","",missing,0
-english,Fluent in English,factor,Yes (1),53
+english,Fluent in English,factor,Yes (1),79
 "","","",missing,0
 age,Age,numeric,mean,21
-"","","",median,20
+"","","",median,21
 "","","",min,18
 "","","",max,23
 "","","",missing,0
-gender,Gender,factor,Woman (1),53
+gender,Gender,factor,Woman (1),79
 "","","",missing,0
-race,Race,factor,Asian American (1),1
+race,Race,factor,Asian American (1),3
 "","","",Biracial or Multiracial (2),3
-"","","",Prefer not to say (3),1
-"","","",White/Caucasian (4),48
+"","","",Black/African American (3),1
+"","","",Prefer not to say (4),1
+"","","",White/Caucasian (5),71
 "","","",missing,0
-ethnicity,Ethnicity,factor,Hispanic/Latino (1),10
-"","","",Not Hispanic/Latino (2),41
+ethnicity,Ethnicity,factor,Hispanic/Latino (1),13
+"","","",Not Hispanic/Latino (2),64
 "","","",Prefer not to say (3),2
 "","","",missing,0
