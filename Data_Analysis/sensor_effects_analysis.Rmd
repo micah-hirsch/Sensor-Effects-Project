@@ -562,7 +562,7 @@ sjPlot::tab_model(M2_sh_mod)
 
 # Listener Demographics
 
-```{r}
+```{r, warning = F, message = F}
 
 listener_demo |>
   select(-c(listener_id, english)) |>
@@ -576,7 +576,8 @@ listener_demo |>
               label = list(age ~ "Age",
                            gender ~ "Gender",
                            race ~ "Race",
-                           ethnicity ~ "Ethnicity"))
+                           ethnicity ~ "Ethnicity")) |>
+  as_gt()
 
 ```
 
@@ -585,9 +586,170 @@ listener_demo |>
 
 ## Intrarater Reliability
 
+```{r, warning = F, message = F}
+
+intel_initial <- perceptual_data |>
+  dplyr::filter(rating_type == "intelligibility") |>
+  dplyr::filter(reliability == "initial")
+
+intel_rel <- perceptual_data |>
+  dplyr::filter(rating_type == "intelligibility") |>
+  dplyr::filter(reliability == "reliability") |>
+  dplyr::select(listener_id, speaker_id, time_point, cp_section, rating) |>
+  dplyr::rename(rating_rel = rating)
+
+intel <- left_join(intel_initial, intel_rel, by = c("listener_id", "speaker_id", 
+                                                   "time_point", "cp_section")) |>
+  dplyr::filter(!is.na(rating_rel))
+
+cor.test(intel$rating, intel$rating_rel, method = "pearson", use = "complete.obs")
+
+```
+
+## Descriptives
+
 ```{r}
 
+speaker_intel <- intel_initial |>
+  dplyr::group_by(speaker_id, time_point) |>
+  dplyr::summarize(intel = mean(rating)) |>
+  ungroup() |>
+  dplyr::left_join(speakers, by = "speaker_id")
 
+speaker_intel |>
+  dplyr::select(group, time_point, intel) |>
+  tbl_strata(
+    strata = group,
+    ~.x |>
+      tbl_summary(
+        by = time_point,
+        statistic = list(all_continuous() ~ c("{mean} ({sd})")),
+        digits = all_continuous() ~ 2,
+        label = list(intel ~ "Intelligibility")
+      ))
+
+```
+
+## Plot
+
+```{r}
+
+speaker_intel_des <- speaker_intel |>
+  dplyr::group_by(group, time_point) |>
+  dplyr::summarize(intel_m = mean(intel), sd = sd(intel), se = sd/sqrt(n()))
+
+intel_plot <- speaker_intel_des |>
+  ggplot() +
+  aes(x = time_point,
+      y = intel_m,
+      color = group,
+      group = group) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin = intel_m - se, ymax = intel_m + se)) +
+  labs(x = "Time Point",
+       y = "Intelligibility") +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  theme_classic()
+
+intel_plot
+
+```
+
+## Model
+
+```{r, warning = F, message = F}
+
+intel_mod <- lmer(intel ~ time_point*group + (1|speaker_id), data = speaker_intel)
+summary(intel_mod)
+
+sjPlot::tab_model(intel_mod)
+
+```
+
+# Naturalness
+
+## Intrarater Reliability
+
+```{r}
+
+nat_initial <- perceptual_data |>
+  dplyr::filter(rating_type == "naturalness") |>
+  dplyr::filter(reliability == "initial")
+
+nat_rel <- perceptual_data |>
+  dplyr::filter(rating_type == "naturalness") |>
+  dplyr::filter(reliability == "reliability") |>
+  dplyr::select(listener_id, speaker_id, time_point, cp_section, rating) |>
+  dplyr::rename(rating_rel = rating)
+
+nat <- left_join(nat_initial, nat_rel, by = c("listener_id", "speaker_id", 
+                                                   "time_point", "cp_section")) |>
+  dplyr::filter(!is.na(rating_rel))
+
+cor.test(nat$rating, nat$rating_rel, method = "pearson", use = "complete.obs")
+
+```
+
+## Descriptives
+
+```{r}
+
+speaker_nat <- nat_initial |>
+  dplyr::group_by(speaker_id, time_point) |>
+  dplyr::summarize(nat = mean(rating)) |>
+  ungroup() |>
+  dplyr::left_join(speakers, by = "speaker_id")
+
+speaker_nat |>
+  dplyr::select(group, time_point, nat) |>
+  tbl_strata(
+    strata = group,
+    ~.x |>
+      tbl_summary(
+        by = time_point,
+        statistic = list(all_continuous() ~ c("{mean} ({sd})")),
+        digits = all_continuous() ~ 2,
+        label = list(nat ~ "Naturalness")
+      ))
+
+
+```
+
+## Plot
+
+```{r}
+
+speaker_nat_des <- speaker_nat |>
+  dplyr::group_by(group, time_point) |>
+  dplyr::summarize(nat_m = mean(nat), sd = sd(nat), se = sd/sqrt(n()))
+
+nat_plot <- speaker_nat_des |>
+  ggplot() +
+  aes(x = time_point,
+      y = nat_m,
+      color = group,
+      group = group) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin = nat_m - se, ymax = nat_m + se)) +
+  labs(x = "Time Point",
+       y = "Naturalness") +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  theme_classic()
+
+nat_plot
+
+```
+
+## Model
+
+```{r}
+
+nat_mod <- lmer(nat ~ time_point*group + (1|speaker_id), data = speaker_nat)
+summary(nat_mod)
+
+sjPlot::tab_model(nat_mod)
 
 ```
 
