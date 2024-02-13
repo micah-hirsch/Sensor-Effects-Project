@@ -109,6 +109,7 @@ cor.test(ar_intra$initial, ar_intra$intrarater, method = "pearson", use = "compl
 
 ```
 
+
 ```{r, echo = F, warning = F, message = F}
 
 rm(ar_inter, ar_intra, artic_rate_rel)
@@ -162,8 +163,7 @@ artic_rate_plot <- overall_ar |>
   geom_line() +
   geom_point() +
   geom_errorbar(aes(ymin = artic_rate - se, ymax = artic_rate + se)) +
-  labs(x = "Time Point",
-       y = "Articulation Rate (syl/s)") +
+  labs(x = "Time Point", y = "Articulation Rate (syl/s)") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
   theme_classic() +
   theme(legend.position = "bottom",
@@ -175,6 +175,7 @@ ggsave("Figures/artic_rate_plot.png", plot = last_plot(), width = 5, height = 5,
 
 ```
 
+
 ## Model
 
 ### Model Summary
@@ -182,7 +183,6 @@ ggsave("Figures/artic_rate_plot.png", plot = last_plot(), width = 5, height = 5,
 ```{r, warning = F, message = F}
 
 ar_model <- lmer(artic_rate_m ~ time_point*group + (1|speaker_id), data = ar_mod)
-summary(ar_model)
 
 sjPlot::tab_model(ar_model)
 
@@ -197,6 +197,8 @@ emm_artic_rate <- emmeans(ar_model, specs = pairwise ~ time_point:group)
 emm_artic_rate$contrasts
 
 ```
+
+
 
 ```{r, warning = F, message = F}
 
@@ -250,6 +252,8 @@ cor.test(VSA_intra$initial, VSA_intra$intrarater, method = "pearson", use = "com
 
 ```
 
+
+
 ```{r, echo = F, warning = F, message = F}
 
 rm(VSA_rel, VSA_intra, VSA_inter, VSA_coords)
@@ -302,7 +306,7 @@ VSA_plot <- VSA_overall |>
     ) +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
   labs(
-    x = "",
+    x = "Time Point",
     y = bquote('Vowel Space Area '(kHz^2))) +
   theme_classic() +
   theme(legend.position = "bottom",
@@ -322,7 +326,6 @@ ggsave("Figures/VSA_plot.png", plot = last_plot(), width = 5, height = 5, units 
 ```{r, warning = F, message = F}
 
 VSA_model <- lmer(VSA ~ time_point*group + (1|speaker_id), data = VSA_mod)
-summary(VSA_model)
 
 sjPlot::tab_model(VSA_model)
 
@@ -465,7 +468,7 @@ M1_plot <- M1_des |>
   geom_point() +
   geom_line() +
   geom_errorbar(aes(ymin = Mean_M1 - se, ymax = Mean_M1 + se), width = 0.1) +
-  labs(x = "",
+  labs(x = "Time Point",
        y = "M1 (kHz)") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
   facet_wrap("consonant") +
@@ -494,7 +497,7 @@ M2_plot <- M2_des |>
   geom_point() +
   geom_line() +
   geom_errorbar(aes(ymin = Mean_M2 - se, ymax = Mean_M2 + se), width = 0.1) +
-  labs(x = "",
+  labs(x = "Time Point",
        y = "M2 (kHz)") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
   facet_wrap("consonant") +
@@ -538,8 +541,6 @@ emm_M1_s$contrasts
 
 
 M2_s_mod <- lmer(M2 ~ time_point*group + (1|speaker_id), data = moment_mod_s)
-summary(M2_s_mod)
-
 sjPlot::tab_model(M2_s_mod)
 
 ```
@@ -555,12 +556,10 @@ moment_mod_sh <- moment_mod |>
   dplyr::filter(consonant == "sh")
 
 M1_sh_mod <- lmer(M1 ~ time_point*group + (1|speaker_id), data = moment_mod_sh)
-summary(M1_sh_mod)
 
 sjPlot::tab_model(M1_sh_mod)
 
 ```
-
 
 #### M2
 
@@ -573,6 +572,14 @@ sjPlot::tab_model(M2_sh_mod)
 
 ```
 
+```{r}
+
+emm_M2_sh <- emmeans(M2_sh_mod, specs = pairwise ~ time_point:group)
+emm_M2_sh$contrasts
+
+```
+
+
 # Listener Demographics
 
 ```{r, warning = F, message = F}
@@ -583,7 +590,7 @@ listener_demo |>
                           gender ~ "categorical",
                           race ~ "categorical",
                           ethnicity ~ "categorical"),
-              statistic = list(all_continuous() ~ "{mean} ({sd})",
+              statistic = list(all_continuous() ~ "{mean} ({sd}, {min}-{max})",
                                all_categorical() ~ "{n} ({p}%)"),
               digits = list(everything() ~ c(2)),
               label = list(age ~ "Age",
@@ -762,13 +769,20 @@ nat_plot
 ```{r}
 
 nat_mod <- lmer(nat ~ time_point*group + (1|speaker_id), data = speaker_nat)
-summary(nat_mod)
 
 sjPlot::tab_model(nat_mod)
 
 ```
 
 ```{r}
+
+emm_nat <- emmeans(nat_mod, specs = pairwise ~ time_point:group)
+emm_nat$contrasts
+
+```
+
+
+```{r, echo = F, warning = F, message = F}
 
 # Creating Spectral Moment Figure
 
@@ -780,7 +794,9 @@ ggsave("Figures/consonant_plot.png", plot = last_plot(), width = 6, height = 6, 
 
 ```
 
-```{r}
+
+
+```{r, echo = F, warning = F, message = F}
 
 # Creating Perceptual Figure
 
@@ -806,13 +822,13 @@ plot_df |>
   labs(x = "Time Point",
        y = "Rating") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
-  facet_wrap("rating_type") +
+  facet_wrap("rating_type", ncol = 1) +
   theme_classic() +
   theme(legend.position = "bottom", 
         aspect.ratio = 1)
 
 
-ggsave("Figures/perceptual_plot.png", plot = last_plot(), width = 6, height = 4, units = "in")
+ggsave("Figures/perceptual_plot.png", plot = last_plot(), width = 3, height = 6, units = "in")
 
 ```
 
