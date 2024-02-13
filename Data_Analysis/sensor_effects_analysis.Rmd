@@ -34,6 +34,7 @@ library(lmerTest) # install.packages("lmerTest")
 library(gt) # install.packages("gt")
 library(gtsummary) # install.packages("gtsummary")
 library(sjPlot) # install.packages("sjPlot")
+library(ggpubr) # install.packages("ggpubr")
 
 vowels <- rio::import("vowel_measures.csv") |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
@@ -46,7 +47,7 @@ consonants <- rio::import("consonant_measures.csv") |>
    dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("Control", "PD")),
                 sex = factor(sex, levels = c("Male", "Female")),
-                consonant = factor(consonant, levels = c("s", "sh")),
+                consonant = factor(consonant, levels = c("s", "sh"), labels = c("/s/", "/ʃ/")),
                 seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
 artic_rate <- rio::import("articulation_rate.csv") |>
@@ -80,6 +81,8 @@ listener_demo <- rio::import("listener_demographics.csv") |>
 
 ## Reliability
 
+The audio files were segmented by two different research assistants. Each rater also re-segmented 20% of their own segments. Therefore, Pearson Product-Moment Correlation Coefficients were used to evaluate interrater and intrarater reliability. The results below show that interrater and intrarater reliability for articulation rate was strong.
+
 ### Interrater Reliability
 
 ```{r, warning = F, message = F}
@@ -108,6 +111,7 @@ cor.test(ar_intra$initial, ar_intra$intrarater, method = "pearson", use = "compl
 
 ```
 
+
 ```{r, echo = F, warning = F, message = F}
 
 rm(ar_inter, ar_intra, artic_rate_rel)
@@ -116,6 +120,8 @@ rm(ar_inter, ar_intra, artic_rate_rel)
 
 
 ## Descriptives
+
+Descriptive statistics for articulation rate across the three time points are shown below. Descriptively, articulation rate is increasing across time points for both speaker groups.
 
 ```{r, warning = F, message = F}
 
@@ -161,25 +167,33 @@ artic_rate_plot <- overall_ar |>
   geom_line() +
   geom_point() +
   geom_errorbar(aes(ymin = artic_rate - se, ymax = artic_rate + se)) +
-  labs(x = "Time Point",
-       y = "Articulation Rate (syl/s)") +
+  labs(x = "Time Point", y = "Articulation Rate (syl/s)") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
-  theme_classic()
+  theme_classic() +
+  theme(legend.position = "bottom",
+        aspect.ratio = 1)
 
 artic_rate_plot
 
+ggsave("Figures/artic_rate_plot.png", plot = last_plot(), width = 5, height = 5, units = "in")
+
 ```
 
+
 ## Model
+
+We are using linear mixed effects models to test the differences in articulation rate across the three time points (before, sensors, and after) for both speaker groups (control and PD). The model results below indicate an increase in articulation rate after sensor removal compared to before sensor placement. Pairwise comparisons reveal this is mainly motivated by the before-after contrast for the control speakers.
 
 ### Model Summary
 
 ```{r, warning = F, message = F}
 
 ar_model <- lmer(artic_rate_m ~ time_point*group + (1|speaker_id), data = ar_mod)
-summary(ar_model)
 
-sjPlot::tab_model(ar_model)
+sjPlot::tab_model(ar_model, pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                            "Group [PD]", "Time Point [Sensors] * Group [PD]",
+                                            "Time Point [After] * Group [PD]"),
+                  dv.labels = "Articulation Rate")
 
 ```
 
@@ -193,9 +207,11 @@ emm_artic_rate$contrasts
 
 ```
 
+
+
 ```{r, warning = F, message = F}
 
-rm(ar_model, ar_mod, emm_artic_rate, overall_ar)
+rm(ar_model, ar_mod, artic_rate_plot, emm_artic_rate, overall_ar)
 
 ```
 
@@ -203,6 +219,8 @@ rm(ar_model, ar_mod, emm_artic_rate, overall_ar)
 # Vowel Space Area
 
 ## Reliability
+
+Similar to articulation rate, Pearson Product Moment Correlation Coefficients were used to assess interrater and intrarater reliability for vowel space area. The results indicate strong interrater and intrarater reliability for VSA.
 
 ### Interrater Reliability
 
@@ -245,6 +263,8 @@ cor.test(VSA_intra$initial, VSA_intra$intrarater, method = "pearson", use = "com
 
 ```
 
+
+
 ```{r, echo = F, warning = F, message = F}
 
 rm(VSA_rel, VSA_intra, VSA_inter, VSA_coords)
@@ -253,6 +273,8 @@ rm(VSA_rel, VSA_intra, VSA_inter, VSA_coords)
 
 
 ## Descriptives
+
+The descriptive statistics for VSA are below. Descriptively, VSA decreased during sensor placement for the control speakers and increased for the speakers with PD. VSA during sensor placement and after sensor removal were comparable within each of the the two speaker groups.
 
 ```{r, warning = F, message = F}
 
@@ -297,31 +319,41 @@ VSA_plot <- VSA_overall |>
     ) +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
   labs(
-    x = "",
+    x = "Time Point",
     y = bquote('Vowel Space Area '(kHz^2))) +
   theme_classic() +
-  theme(aspect.ratio = 1)
+  theme(legend.position = "bottom",
+        aspect.ratio = 1)
 
 VSA_plot
+
+ggsave("Figures/VSA_plot.png", plot = last_plot(), width = 5, height = 5, units = "in")
+
 
 ```
 
 ## Model
+
+A linear mixed effects model was ran to determine the change in VSA between the three time points (before, sensors, and after) for the two speaker groups (control and PD). None of the fixed effects were significant indicating VSA was comparable across the three time points for the two speaker groups.
 
 ### Model Summary
 
 ```{r, warning = F, message = F}
 
 VSA_model <- lmer(VSA ~ time_point*group + (1|speaker_id), data = VSA_mod)
-summary(VSA_model)
 
-sjPlot::tab_model(VSA_model)
+sjPlot::tab_model(VSA_model, pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                            "Group [PD]", "Time Point [Sensors] * Group [PD]",
+                                            "Time Point [After] * Group [PD]"),
+                  dv.labels = "Vowel Space Area")
 
 ```
 
 # Spectral Moment Analysis
 
 ## Reliability
+
+Pearson Product Moment Correlation Coefficients were used to determine interrater and intrarater reliability for M1 and M2. The results indicate strong interrater and intrarater reliability.
 
 ### Interrater Reliability
 
@@ -368,7 +400,6 @@ cor.test(M2_inter$initial, M2_inter$interrater, method = "pearson", use = "compl
 
 ```
 
-
 ### Intrarater
 
 #### M1
@@ -399,13 +430,15 @@ cor.test(M2_intra$initial, M2_intra$intrarater, method = "pearson", use = "compl
 
 ### Spectral Moment Coefficient for /s/
 
+Descriptive results for M1 and M2 for /s/ are shown below. The PD speakers appear to have a lower M1 values overall. However, both groups appear to have lower M1 values during sensor placement compared to before and after sensors. M2 appears to increase slightly during sensor placement for both PD and control speakers.
+
 ```{r, warning = F, message = F}
 
 moment_mod <- moment_mod |>
   dplyr::filter(seg_type == "initial")
 
 moment_mod |>
-  dplyr::filter(consonant == "s") |>
+  dplyr::filter(consonant == "/s/") |>
   dplyr::select(c(group, time_point, M1, M2)) |>
   tbl_strata(
     strata = group,
@@ -420,10 +453,12 @@ moment_mod |>
 
 ### Spectral Moment for /sh/
 
+Descriptive statistics for M1 and M2 for /sh/ are presented below. The M1 and M2 values between the two groups appear to be similar and follow a simililar pattern to the results from /s/.
+
 ```{r, warning = F, message = F}
 
 moment_mod |>
-  dplyr::filter(consonant == "sh") |>
+  dplyr::filter(consonant == "/ʃ/") |>
   dplyr::select(c(group, time_point, M1, M2)) |>
   tbl_strata(
     strata = group,
@@ -447,7 +482,7 @@ M1_des <- moment_mod |>
   dplyr::group_by(group, time_point, consonant) |>
   dplyr::summarize(Mean_M1 = mean(M1), sd = sd(M1), se = sd/sqrt(n()))
 
-M1_des |>
+M1_plot <- M1_des |>
   ggplot() +
   aes(x = time_point,
       y = Mean_M1,
@@ -456,12 +491,14 @@ M1_des |>
   geom_point() +
   geom_line() +
   geom_errorbar(aes(ymin = Mean_M1 - se, ymax = Mean_M1 + se), width = 0.1) +
-  labs(x = "",
+  labs(x = "Time Point",
        y = "M1 (kHz)") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
   facet_wrap("consonant") +
   theme_classic() +
   theme(aspect.ratio = 1)
+
+M1_plot
 
 ```
 
@@ -474,7 +511,7 @@ M2_des <- moment_mod |>
   dplyr::group_by(group, time_point, consonant) |>
   dplyr::summarize(Mean_M2 = mean(M2), sd = sd(M2), se = sd/sqrt(n()))
 
-M2_des |>
+M2_plot <- M2_des |>
   ggplot() +
   aes(x = time_point,
       y = Mean_M2,
@@ -483,12 +520,14 @@ M2_des |>
   geom_point() +
   geom_line() +
   geom_errorbar(aes(ymin = Mean_M2 - se, ymax = Mean_M2 + se), width = 0.1) +
-  labs(x = "",
+  labs(x = "Time Point",
        y = "M2 (kHz)") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
   facet_wrap("consonant") +
   theme_classic() +
   theme(aspect.ratio = 1)
+
+M2_plot
 
 ```
 ## Models
@@ -497,18 +536,25 @@ M2_des |>
 
 #### M1
 
+A linear mixed effects model for M1 was conducted for /s/ to examine changes across the three time points (before, sensors, after) for the two speaker groups (control and PD). M1 significantly decreased with sensor placement and the PD group had an overall lower M1 values. Pairwise comparisons also showed that the contrast between sensor placement and after placement was signficiant for the control group.
+
+##### Model Summary
+
 ```{r, warning = F, message = F}
 
 moment_mod_s <- moment_mod |>
-  dplyr::filter(consonant == "s")
+  dplyr::filter(consonant == "/s/")
 
 M1_s_mod <- lmer(M1 ~ time_point*group + (1|speaker_id), data = moment_mod_s)
-summary(M1_s_mod)
 
-sjPlot::tab_model(M1_s_mod)
+sjPlot::tab_model(M1_s_mod, pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                            "Group [PD]", "Time Point [Sensors] * Group [PD]",
+                                            "Time Point [After] * Group [PD]"),
+                  dv.labels = "M1 /s/")
 
 ```
 
+##### Pairwise Comparisons
 
 ```{r}
 
@@ -521,13 +567,17 @@ emm_M1_s$contrasts
 
 #### M2
 
+None of the fixed effects of the /s/ M2 model were significant.
+
 ```{r, warning = F, message = F}
 
 
 M2_s_mod <- lmer(M2 ~ time_point*group + (1|speaker_id), data = moment_mod_s)
-summary(M2_s_mod)
-
-sjPlot::tab_model(M2_s_mod)
+sjPlot::tab_model(M2_s_mod,
+                  pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                            "Group [PD]", "Time Point [Sensors] * Group [PD]",
+                                            "Time Point [After] * Group [PD]"),
+                  dv.labels = "M2 /s/")
 
 ```
 
@@ -536,29 +586,49 @@ sjPlot::tab_model(M2_s_mod)
 
 #### M1 
 
+None of the fixed effects for the LME model for M1 for /sh/ was significant.
+
 ```{r, warning = F, message = F}
 
 moment_mod_sh <- moment_mod |>
-  dplyr::filter(consonant == "sh")
+  dplyr::filter(consonant == "/ʃ/")
 
 M1_sh_mod <- lmer(M1 ~ time_point*group + (1|speaker_id), data = moment_mod_sh)
-summary(M1_sh_mod)
 
-sjPlot::tab_model(M1_sh_mod)
+sjPlot::tab_model(M1_sh_mod, pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                            "Group [PD]", "Time Point [Sensors] * Group [PD]",
+                                            "Time Point [After] * Group [PD]"),
+                  dv.labels = "M1 /ʃ/")
 
 ```
 
-
 #### M2
+
+##### Model Summary
+
+The LME model for /sh/ M2 revealed that M2 was significantly higher during sensor placement compared to before sensors. However, M2 after sensor placement did not significantly differ from before sensor placement. Pairwise comparisons also revealed that M2 during sensor placement and after sensor removal was also significantly decreased for control speakers. 
 
 ```{r, warning = F, message = F}
 
 M2_sh_mod <- lmer(M2 ~ time_point*group + (1|speaker_id), data = moment_mod_sh)
-summary(M2_sh_mod)
 
-sjPlot::tab_model(M2_sh_mod)
+sjPlot::tab_model(M2_sh_mod,
+                  pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                            "Group [PD]", "Time Point [Sensors] * Group [PD]",
+                                            "Time Point [After] * Group [PD]"),
+                  dv.labels = "M2 /ʃ/")
 
 ```
+
+##### Pairwise Comparisons
+
+```{r}
+
+emm_M2_sh <- emmeans(M2_sh_mod, specs = pairwise ~ time_point:group)
+emm_M2_sh$contrasts
+
+```
+
 
 # Listener Demographics
 
@@ -570,7 +640,7 @@ listener_demo |>
                           gender ~ "categorical",
                           race ~ "categorical",
                           ethnicity ~ "categorical"),
-              statistic = list(all_continuous() ~ "{mean} ({sd})",
+              statistic = list(all_continuous() ~ "{mean} ({sd}, {min}-{max})",
                                all_categorical() ~ "{n} ({p}%)"),
               digits = list(everything() ~ c(2)),
               label = list(age ~ "Age",
@@ -583,6 +653,8 @@ listener_demo |>
 
 
 # Intelligibility
+
+Listeners completed 4 repeated ratings (20%) in order to get intrarater reliability. Pearson Product Moment Correlation Coefficient was used to calculate intrarater reliability. Based on the result below, intrarater reliability was strong for intelligibility ratings.
 
 ## Intrarater Reliability
 
@@ -608,7 +680,9 @@ cor.test(intel$rating, intel$rating_rel, method = "pearson", use = "complete.obs
 
 ## Descriptives
 
-```{r}
+Descriptive results for intelligibility are presented below. Overall, intelligibility is lower for the PD speakers compared to the control speakers. However, for both groups, intelligibility is lower during sensor placement compared to before and after sensor placement.
+
+```{r, warning = F, message = F}
 
 speaker_intel <- intel_initial |>
   dplyr::group_by(speaker_id, time_point) |>
@@ -632,7 +706,7 @@ speaker_intel |>
 
 ## Plot
 
-```{r}
+```{r, warning = F, message = F}
 
 speaker_intel_des <- speaker_intel |>
   dplyr::group_by(group, time_point) |>
@@ -650,6 +724,7 @@ intel_plot <- speaker_intel_des |>
   labs(x = "Time Point",
        y = "Intelligibility") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  coord_cartesian(ylim = c(40, 100)) +
   theme_classic()
 
 intel_plot
@@ -658,12 +733,16 @@ intel_plot
 
 ## Model
 
+A linear mixed effects model was conducted to evaluate intelligibility changes across the three time points for the two speaker groups. None of the fixed effects in the model were significant. However, there was a trend of decreased intelligibility during sensor placement.
+
 ```{r, warning = F, message = F}
 
 intel_mod <- lmer(intel ~ time_point*group + (1|speaker_id), data = speaker_intel)
-summary(intel_mod)
 
-sjPlot::tab_model(intel_mod)
+sjPlot::tab_model(intel_mod, pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                            "Group [PD]", "Time Point [Sensors] * Group [PD]",
+                                            "Time Point [After] * Group [PD]"),
+                  dv.labels = "Intelligibility")
 
 ```
 
@@ -671,7 +750,9 @@ sjPlot::tab_model(intel_mod)
 
 ## Intrarater Reliability
 
-```{r}
+Intrarater reliability was measured using Pearson Product Moment Correlation Coefficient. The results show a moderate-strong reliability.
+
+```{r, warning = F, message = F}
 
 nat_initial <- perceptual_data |>
   dplyr::filter(rating_type == "naturalness") |>
@@ -693,7 +774,9 @@ cor.test(nat$rating, nat$rating_rel, method = "pearson", use = "complete.obs")
 
 ## Descriptives
 
-```{r}
+Naturalness ratings appear to be lower for both groups compared to intelligility ratings. However, the patterns of results appear to be similar to the intelligibility ratings.
+
+```{r, warning = F, message = F}
 
 speaker_nat <- nat_initial |>
   dplyr::group_by(speaker_id, time_point) |>
@@ -736,6 +819,7 @@ nat_plot <- speaker_nat_des |>
   labs(x = "Time Point",
        y = "Naturalness") +
   scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  coord_cartesian(ylim = c(40, 100)) +
   theme_classic()
 
 nat_plot
@@ -744,12 +828,79 @@ nat_plot
 
 ## Model
 
-```{r}
+A linear effects model was conducted to evaluate how naturalness ratings changed between the three time points (before, sensors, and after) for the two speaker groups (PD and control). The LME results showed that naturalness was significantly lower during sensor placement compared to before sensors and that PD speakers had lower overall naturalness ratings. Naturalness ratings did not significantly differ before and after sensor placement. Pairwise comparisons also found that naturalness significantly increased from sensor placement to after sensor placement for both the PD and control speakers.
+
+### Model Summary
+
+```{r, warning = F, message = F}
 
 nat_mod <- lmer(nat ~ time_point*group + (1|speaker_id), data = speaker_nat)
-summary(nat_mod)
 
-sjPlot::tab_model(nat_mod)
+sjPlot::tab_model(nat_mod, pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                            "Group [PD]", "Time Point [Sensors] * Group [PD]",
+                                            "Time Point [After] * Group [PD]"),
+                  dv.labels = "Naturalness")
 
 ```
+
+### Pairwise Comparisons
+
+```{r}
+
+emm_nat <- emmeans(nat_mod, specs = pairwise ~ time_point:group)
+emm_nat$contrasts
+
+```
+
+
+```{r, eval = F, warning = F, message = F}
+
+# Creating Spectral Moment Figure
+
+ggarrange(M1_plot, M2_plot, ncol = 1, common.legend = T, legend = "bottom")
+
+# Saving Spectral Moment Figure
+
+ggsave("Figures/consonant_plot.png", plot = last_plot(), width = 6, height = 6, unit = "in")
+
+```
+
+
+
+```{r, eval = F, warning = F, message = F}
+
+# Creating Perceptual Figure
+
+speaker_intel_des <- speaker_intel_des |>
+  dplyr::mutate(rating_type = "Intelligibility") |>
+  dplyr::rename(rating = intel_m)
+
+speaker_nat_des <- speaker_nat_des |>
+  dplyr::mutate(rating_type = "Naturalness") |>
+  dplyr::rename(rating = nat_m)
+
+plot_df <- rbind(speaker_intel_des, speaker_nat_des)
+
+plot_df |>
+  ggplot() +
+  aes(x = time_point,
+      y = rating,
+      color = group,
+      group = group) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin = rating - se, ymax = rating + se)) +
+  labs(x = "Time Point",
+       y = "Rating") +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  facet_wrap("rating_type", ncol = 1) +
+  theme_classic() +
+  theme(legend.position = "bottom", 
+        aspect.ratio = 1)
+
+
+ggsave("Figures/perceptual_plot.png", plot = last_plot(), width = 3, height = 6, units = "in")
+
+```
+
 
