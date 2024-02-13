@@ -47,7 +47,7 @@ consonants <- rio::import("consonant_measures.csv") |>
    dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("Control", "PD")),
                 sex = factor(sex, levels = c("Male", "Female")),
-                consonant = factor(consonant, levels = c("s", "sh")),
+                consonant = factor(consonant, levels = c("s", "sh"), labels = c("/s/", "/ʃ/")),
                 seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
 artic_rate <- rio::import("articulation_rate.csv") |>
@@ -417,7 +417,7 @@ moment_mod <- moment_mod |>
   dplyr::filter(seg_type == "initial")
 
 moment_mod |>
-  dplyr::filter(consonant == "s") |>
+  dplyr::filter(consonant == "/s/") |>
   dplyr::select(c(group, time_point, M1, M2)) |>
   tbl_strata(
     strata = group,
@@ -435,7 +435,7 @@ moment_mod |>
 ```{r, warning = F, message = F}
 
 moment_mod |>
-  dplyr::filter(consonant == "sh") |>
+  dplyr::filter(consonant == "/ʃ/") |>
   dplyr::select(c(group, time_point, M1, M2)) |>
   tbl_strata(
     strata = group,
@@ -516,10 +516,9 @@ M2_plot
 ```{r, warning = F, message = F}
 
 moment_mod_s <- moment_mod |>
-  dplyr::filter(consonant == "s")
+  dplyr::filter(consonant == "/s/")
 
 M1_s_mod <- lmer(M1 ~ time_point*group + (1|speaker_id), data = moment_mod_s)
-summary(M1_s_mod)
 
 sjPlot::tab_model(M1_s_mod)
 
@@ -553,7 +552,7 @@ sjPlot::tab_model(M2_s_mod)
 ```{r, warning = F, message = F}
 
 moment_mod_sh <- moment_mod |>
-  dplyr::filter(consonant == "sh")
+  dplyr::filter(consonant == "/ʃ/")
 
 M1_sh_mod <- lmer(M1 ~ time_point*group + (1|speaker_id), data = moment_mod_sh)
 
@@ -563,14 +562,17 @@ sjPlot::tab_model(M1_sh_mod)
 
 #### M2
 
+#### Model Summary
+
 ```{r, warning = F, message = F}
 
 M2_sh_mod <- lmer(M2 ~ time_point*group + (1|speaker_id), data = moment_mod_sh)
-summary(M2_sh_mod)
 
 sjPlot::tab_model(M2_sh_mod)
 
 ```
+
+##### Pairwise Comparisons
 
 ```{r}
 
@@ -782,7 +784,7 @@ emm_nat$contrasts
 ```
 
 
-```{r, echo = F, warning = F, message = F}
+```{r, eval = F, warning = F, message = F}
 
 # Creating Spectral Moment Figure
 
@@ -796,7 +798,7 @@ ggsave("Figures/consonant_plot.png", plot = last_plot(), width = 6, height = 6, 
 
 
 
-```{r, echo = F, warning = F, message = F}
+```{r, eval = F, warning = F, message = F}
 
 # Creating Perceptual Figure
 
