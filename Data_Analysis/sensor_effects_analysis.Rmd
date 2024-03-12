@@ -798,8 +798,16 @@ eff_size(emm_M2_sh, sigma = sigma(M2_sh_mod), edf = df.residual(M2_sh_mod))
 
 ```
 
+```{r, warning = F, message = F}
+
+rm(ar_mod, emm_M1_s, emm_M2_s, emm_M1_sh, emm_M2_sh, M1_des, M1_inter, M1_intra, M1_rel, M1_s_mod, M1_sh_mod, M2_s_mod, M2_sh_mod, M2_des, M2_inter, M2_intra, M2_rel, moment_mod, moment_mod_s, moment_mod_sh)
+
+```
+
 
 # Listener Demographics
+
+The listener demographics are presented below. Listeners were women from 18 to 23 years old.
 
 ```{r, warning = F, message = F}
 
@@ -809,7 +817,7 @@ listener_demo |>
                           gender ~ "categorical",
                           race ~ "categorical",
                           ethnicity ~ "categorical"),
-              statistic = list(all_continuous() ~ "{mean} ({sd}, {min}-{max})",
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
                                all_categorical() ~ "{n} ({p}%)"),
               digits = list(everything() ~ c(2)),
               label = list(age ~ "Age",
@@ -902,6 +910,8 @@ intel_plot
 
 ## Model
 
+### Model Summary
+
 A linear mixed effects model was conducted to evaluate intelligibility changes across the three time points for the two speaker groups. None of the fixed effects in the model were significant. However, there was a trend of decreased intelligibility during sensor placement.
 
 ```{r, warning = F, message = F}
@@ -912,6 +922,31 @@ sjPlot::tab_model(intel_mod, pred.labels = c("Intercept", "Time Point [Sensors]"
                                             "Group [PD]", "Time Point [Sensors] * Group [PD]",
                                             "Time Point [After] * Group [PD]"),
                   dv.labels = "Intelligibility")
+
+```
+
+
+#### Effect Size
+
+```{r}
+
+effectsize::eta_squared(intel_mod, alternative = "two.sided")
+
+```
+#### Pairwise Comparisons
+
+```{r}
+
+emm_intel <- emmeans(intel_mod, specs = pairwise ~ time_point:group)
+emm_intel$contrasts
+
+```
+
+#### Pairwise Effect Sizes
+
+```{r}
+
+eff_size(emm_intel, sigma = sigma(intel_mod), edf = df.residual(intel_mod))
 
 ```
 
@@ -1012,6 +1047,14 @@ sjPlot::tab_model(nat_mod, pred.labels = c("Intercept", "Time Point [Sensors]", 
 
 ```
 
+#### Effect Size
+
+```{r}
+
+effectsize::eta_squared(nat_mod, alternative = "two.sided")
+
+```
+
 ### Pairwise Comparisons
 
 ```{r}
@@ -1020,6 +1063,16 @@ emm_nat <- emmeans(nat_mod, specs = pairwise ~ time_point:group)
 emm_nat$contrasts
 
 ```
+
+
+#### Pairwise Effect Sizes
+
+```{r}
+
+eff_size(emm_nat, sigma = sigma(nat_mod), edf = df.residual(nat_mod))
+
+```
+
 
 
 ```{r, eval = F, warning = F, message = F}
