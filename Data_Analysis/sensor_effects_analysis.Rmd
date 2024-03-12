@@ -35,22 +35,23 @@ library(gt) # install.packages("gt")
 library(gtsummary) # install.packages("gtsummary")
 library(sjPlot) # install.packages("sjPlot")
 library(ggpubr) # install.packages("ggpubr")
+library(effectsize) # install.packages("effectsize")
 
-vowels <- rio::import("vowel_measures.csv") |>
+vowels <- rio::import("Cleaned Data/vowel_measures.csv") |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("Control", "PD")),
                 sex = factor(sex, levels = c("Male", "Female")),
                 vowel = factor(vowel, levels = c("i", "u", "ae", "a")),
                 seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
-consonants <- rio::import("consonant_measures.csv") |>
+consonants <- rio::import("Cleaned Data/consonant_measures.csv") |>
    dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("Control", "PD")),
                 sex = factor(sex, levels = c("Male", "Female")),
                 consonant = factor(consonant, levels = c("s", "sh"), labels = c("/s/", "/ʃ/")),
                 seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
-artic_rate <- rio::import("articulation_rate.csv") |>
+artic_rate <- rio::import("Cleaned Data/articulation_rate.csv") |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("Control", "PD")), 
                 sex = factor(sex, levels = c("Male", "Female")),
@@ -61,13 +62,13 @@ speakers <- artic_rate |>
   dplyr::select(speaker_id, group, sex, age) |>
   dplyr::distinct()
 
-perceptual_data <- rio::import("perceptual_ratings.csv") |>
+perceptual_data <- rio::import("Cleaned Data/perceptual_ratings.csv") |>
   dplyr::mutate(counterbalance = as.factor(counterbalance),
                 time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 reliability = factor(reliability, levels = c("initial", "reliability")),
                 rating_type = factor(rating_type, levels = c("intelligibility", "naturalness")))
 
-listener_demo <- rio::import("listener_demographics.csv") |>
+listener_demo <- rio::import("Cleaned Data/listener_demographics.csv") |>
   dplyr::mutate(english = as.factor(english),
                 age = as.numeric(age),
                 gender = as.factor(gender),
@@ -182,7 +183,7 @@ ggsave("Figures/artic_rate_plot.png", plot = last_plot(), width = 5, height = 5,
 
 ## Model
 
-We are using linear mixed effects models to test the differences in articulation rate across the three time points (before, sensors, and after) for both speaker groups (control and PD). The model results below indicate an increase in articulation rate after sensor removal compared to before sensor placement. Pairwise comparisons reveal this is mainly motivated by the before-after contrast for the control speakers.
+We are using linear mixed effects models to test the differences in articulation rate across the three time points (before, sensors, and after) for both speaker groups (control and PD). The model results below indicate an increase in articulation rate after sensor removal compared to before sensor placement. Pairwise comparisons reveal this is mainly motivated by the before-after contrast for the control speakers. 
 
 ### Model Summary
 
@@ -198,7 +199,20 @@ sjPlot::tab_model(ar_model, pred.labels = c("Intercept", "Time Point [Sensors]",
 ```
 
 
+### Model Effect Size
+
+The partial eta-squared values for the articulation rate model are shown below. Based on the results here, the effect of time point is large. The effect sizes for the main effect of group and the interaction between group and time point are small.
+
+```{r, message = F, warning = F}
+
+effectsize::eta_squared(ar_model, alternative = "two.sided")
+
+```
+
+
 ### Pairwise Comparisons
+
+We ran pairwise comparisons using the emmeans package. The results below show the significant difference between the before and after time points in the model are primarily driven by the control speakers (this was the only significant contrast).
 
 ```{r, warning = F, message = F}
 
@@ -207,6 +221,15 @@ emm_artic_rate$contrasts
 
 ```
 
+### Pairwise Effect Sizes
+
+Cohen's D effect sizes were also calculated for these pairwise comparisons. The before and after contrast for the control speaker is signficant and has a large effect size.
+
+```{r, message = F, warning = F}
+
+eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.residual(ar_model))
+
+```
 
 
 ```{r, warning = F, message = F}
