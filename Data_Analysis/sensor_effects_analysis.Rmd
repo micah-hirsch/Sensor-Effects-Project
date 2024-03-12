@@ -82,7 +82,7 @@ listener_demo <- rio::import("Cleaned Data/listener_demographics.csv") |>
 
 Below is the demographic information for the speakers in this study. Overall, there were more control speakers than speakers with Parkinson's disease. The PD speakers were slightly older than the control speakers (but both groups within 1 SD of each other). There was a higher proportion of female speakers in the control group compared to the PD group.
 
-```{r}
+```{r, message = F, warning = F}
 
 demo_table <- speakers |>
   dplyr::select(-speaker_id) |>
@@ -96,6 +96,9 @@ demo_table <- speakers |>
   as_gt()
 
 demo_table
+
+demo_table |>
+  gtsave("Tables/speaker_demo.html")
 
 ```
 
