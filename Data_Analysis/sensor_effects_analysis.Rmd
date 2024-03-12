@@ -372,6 +372,24 @@ sjPlot::tab_model(VSA_model, pred.labels = c("Intercept", "Time Point [Sensors]"
 
 ```
 
+
+### Effect Size
+
+The partial eta-squared effect sizes show very small effects for the main effects of time point and group as well as their interaction.
+
+```{r}
+
+effectsize::eta_squared(VSA_model, alternative = "two.sided")
+
+```
+
+
+
+
+### Exploratory VSA Model
+
+Although we saw an interesting trend in VSA, the model above
+
 # Spectral Moment Analysis
 
 ## Reliability
