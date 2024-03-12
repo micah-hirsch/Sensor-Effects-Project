@@ -35,22 +35,23 @@ library(gt) # install.packages("gt")
 library(gtsummary) # install.packages("gtsummary")
 library(sjPlot) # install.packages("sjPlot")
 library(ggpubr) # install.packages("ggpubr")
+library(effectsize) # install.packages("effectsize")
 
-vowels <- rio::import("vowel_measures.csv") |>
+vowels <- rio::import("Cleaned Data/vowel_measures.csv") |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("Control", "PD")),
                 sex = factor(sex, levels = c("Male", "Female")),
                 vowel = factor(vowel, levels = c("i", "u", "ae", "a")),
                 seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
-consonants <- rio::import("consonant_measures.csv") |>
+consonants <- rio::import("Cleaned Data/consonant_measures.csv") |>
    dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("Control", "PD")),
                 sex = factor(sex, levels = c("Male", "Female")),
                 consonant = factor(consonant, levels = c("s", "sh"), labels = c("/s/", "/ʃ/")),
                 seg_type = factor(seg_type, levels = c("initial", "intrarater", "interrater")))
 
-artic_rate <- rio::import("articulation_rate.csv") |>
+artic_rate <- rio::import("Cleaned Data/articulation_rate.csv") |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 group = factor(group, levels = c("Control", "PD")), 
                 sex = factor(sex, levels = c("Male", "Female")),
@@ -61,18 +62,43 @@ speakers <- artic_rate |>
   dplyr::select(speaker_id, group, sex, age) |>
   dplyr::distinct()
 
-perceptual_data <- rio::import("perceptual_ratings.csv") |>
+perceptual_data <- rio::import("Cleaned Data/perceptual_ratings.csv") |>
   dplyr::mutate(counterbalance = as.factor(counterbalance),
                 time_point = factor(time_point, levels = c("before", "sensors", "after")),
                 reliability = factor(reliability, levels = c("initial", "reliability")),
                 rating_type = factor(rating_type, levels = c("intelligibility", "naturalness")))
 
-listener_demo <- rio::import("listener_demographics.csv") |>
+listener_demo <- rio::import("Cleaned Data/listener_demographics.csv") |>
   dplyr::mutate(english = as.factor(english),
                 age = as.numeric(age),
                 gender = as.factor(gender),
                 race = as.factor(race),
                 ethnicity = as.factor(ethnicity))
+
+```
+
+
+# Speaker Demographics
+
+Below is the demographic information for the speakers in this study. Overall, there were more control speakers than speakers with Parkinson's disease. The PD speakers were slightly older than the control speakers (but both groups within 1 SD of each other). There was a higher proportion of female speakers in the control group compared to the PD group.
+
+```{r, message = F, warning = F}
+
+demo_table <- speakers |>
+  dplyr::select(-speaker_id) |>
+  tbl_summary(
+    by = group,
+    statistic = list(all_continuous() ~ c("{mean} ({sd})")),
+    digits = all_continuous() ~ 2,
+    label = list(age ~ "Age",
+                 sex ~ "Sex")) |>
+  add_overall() |>
+  as_gt()
+
+demo_table
+
+demo_table |>
+  gtsave("Tables/speaker_demo.html")
 
 ```
 
@@ -114,7 +140,7 @@ cor.test(ar_intra$initial, ar_intra$intrarater, method = "pearson", use = "compl
 
 ```{r, echo = F, warning = F, message = F}
 
-rm(ar_inter, ar_intra, artic_rate_rel)
+rm(ar_inter, ar_intra, artic_rate_rel, demo_table)
 
 ```
 
@@ -132,7 +158,7 @@ ar_mod <- artic_rate |>
   dplyr::left_join(speakers, by = "speaker_id") |>
   ungroup()
 
-ar_mod |>
+ar_table <- ar_mod |>
   dplyr::select(c(group, time_point, artic_rate_m)) |>
   tbl_strata(
     strata = group,
@@ -143,6 +169,8 @@ ar_mod |>
         digits = all_continuous() ~ 2,
         label = list(artic_rate_m ~ "Articulation Rate")
       ))
+
+ar_table
 
 ```
 
@@ -182,7 +210,7 @@ ggsave("Figures/artic_rate_plot.png", plot = last_plot(), width = 5, height = 5,
 
 ## Model
 
-We are using linear mixed effects models to test the differences in articulation rate across the three time points (before, sensors, and after) for both speaker groups (control and PD). The model results below indicate an increase in articulation rate after sensor removal compared to before sensor placement. Pairwise comparisons reveal this is mainly motivated by the before-after contrast for the control speakers.
+We are using linear mixed effects models to test the differences in articulation rate across the three time points (before, sensors, and after) for both speaker groups (control and PD). The model results below indicate an increase in articulation rate after sensor removal compared to before sensor placement. 
 
 ### Model Summary
 
@@ -198,7 +226,19 @@ sjPlot::tab_model(ar_model, pred.labels = c("Intercept", "Time Point [Sensors]",
 ```
 
 
+#### Model Effect Size
+
+The partial eta-squared values for the articulation rate model are shown below. Based on the results here, the effect of time point is large. The effect sizes for the main effect of group and the interaction between group and time point are small.
+
+```{r, message = F, warning = F}
+
+effectsize::eta_squared(ar_model, alternative = "two.sided")
+
+```
+
 ### Pairwise Comparisons
+
+We ran pairwise comparisons using the emmeans package. The results below show the significant difference between the before and after time points in the model are primarily driven by the control speakers (this was the only significant contrast).
 
 ```{r, warning = F, message = F}
 
@@ -207,11 +247,20 @@ emm_artic_rate$contrasts
 
 ```
 
+#### Pairwise Effect Sizes
+
+Cohen's D effect sizes were also calculated for these pairwise comparisons. The before and after contrast for the control speaker is significant and has a large effect size.
+
+```{r, message = F, warning = F}
+
+eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.residual(ar_model))
+
+```
 
 
 ```{r, warning = F, message = F}
 
-rm(ar_model, ar_mod, artic_rate_plot, emm_artic_rate, overall_ar)
+rm(ar_model, artic_rate_plot, emm_artic_rate, overall_ar, artic_rate)
 
 ```
 
@@ -281,7 +330,7 @@ The descriptive statistics for VSA are below. Descriptively, VSA decreased durin
 VSA_mod <- VSA |>
   dplyr::filter(seg_type == "initial")
 
-VSA_mod |>
+VSA_table <- VSA_mod |>
   dplyr::select(c(group, time_point, VSA)) |>
   tbl_strata(
     strata = group,
@@ -291,6 +340,8 @@ VSA_mod |>
         statistic = list(all_continuous() ~ c("{mean} ({sd})")),
         digits = all_continuous() ~ 2
       ))
+
+VSA_table
 
 ```
 
@@ -349,6 +400,54 @@ sjPlot::tab_model(VSA_model, pred.labels = c("Intercept", "Time Point [Sensors]"
 
 ```
 
+
+#### Effect Size
+
+The partial eta-squared effect sizes show very small effects for the main effects of time point and group as well as their interaction.
+
+```{r}
+
+effectsize::eta_squared(VSA_model, alternative = "two.sided")
+
+```
+
+
+### Exploratory VSA Model
+
+Although we saw an interesting trend in VSA, the model above showed no significant fixed effects of VSA. It is possible that since we are observing an increase in articulation rate across the three time points, that this may impact the results were are seeing in the VSA model. Therefore, we are running an exploratory model for VSA by adding artic_rate as a covariate in the model. Based on the model output below, adding articulation rate as a covariate did not change the model output much.
+
+```{r, warning = F, message = F}
+
+VSA_mod_2 <- dplyr::left_join(VSA_mod, ar_mod, by=c("speaker_id", "time_point", "group", "sex", "age"))
+
+VSA_model_2 <- lmer(VSA ~ time_point*group + artic_rate_m + (1|speaker_id), data = VSA_mod_2)
+
+sjPlot::tab_model(VSA_model_2,
+                  pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                   "Group [PD]", "Articulation Rate", 
+                                   "Time Point [Sensors] * Group [PD]",
+                                   "Time Point [After] * Group [PD]"),
+                  dv.labels = "Vowel Space Area")
+
+```
+
+
+#### Model Effect Size
+
+Again, partial eta-squared values were calculated. All calculated effect sizes are small.
+
+```{r}
+
+effectsize::eta_squared(VSA_model_2, alternative = "two.sided")
+
+```
+```{r, echo = F, warning = F, message = F}
+
+rm(VSA_mod, VSA_mod_2, VSA_model, VSA_model_2, VSA, VSA_overall, ar_mod)
+
+```
+
+
 # Spectral Moment Analysis
 
 ## Reliability
@@ -382,6 +481,7 @@ M1_inter <- M1_rel |>
 cor.test(M1_inter$initial, M1_inter$interrater, method = "pearson", use = "complete.obs")
 
 ```
+
 #### M2
 
 ```{r, warning = F, message = F}
@@ -426,6 +526,13 @@ cor.test(M2_intra$initial, M2_intra$intrarater, method = "pearson", use = "compl
 
 ```
 
+```{r, echo = F, message = F, warning = F}
+
+rm(M1_inter, M2_inter, M1_intra, M2_intra, M2_rel, M1_rel)
+
+```
+
+
 ## Descriptives
 
 ### Spectral Moment Coefficient for /s/
@@ -437,7 +544,7 @@ Descriptive results for M1 and M2 for /s/ are shown below. The PD speakers appea
 moment_mod <- moment_mod |>
   dplyr::filter(seg_type == "initial")
 
-moment_mod |>
+s_table <- moment_mod |>
   dplyr::filter(consonant == "/s/") |>
   dplyr::select(c(group, time_point, M1, M2)) |>
   tbl_strata(
@@ -446,18 +553,22 @@ moment_mod |>
       tbl_summary(
         by = time_point,
         statistic = list(all_continuous() ~ c("{mean} ({sd})")),
-        digits = all_continuous() ~ 2
+        digits = all_continuous() ~ 2,
+        label = list(M1 ~ "M1 /s/",
+                     M2 ~ "M2 /s/")
       ))
+
+s_table
 
 ```
 
-### Spectral Moment for /sh/
+### Spectral Moment Coefficient for /sh/
 
-Descriptive statistics for M1 and M2 for /sh/ are presented below. The M1 and M2 values between the two groups appear to be similar and follow a simililar pattern to the results from /s/.
+Descriptive statistics for M1 and M2 for /sh/ are presented below. The M1 and M2 values between the two groups appear to be similar and follow a similar pattern to the results from /s/.
 
 ```{r, warning = F, message = F}
 
-moment_mod |>
+sh_table <- moment_mod |>
   dplyr::filter(consonant == "/ʃ/") |>
   dplyr::select(c(group, time_point, M1, M2)) |>
   tbl_strata(
@@ -466,8 +577,12 @@ moment_mod |>
       tbl_summary(
         by = time_point,
         statistic = list(all_continuous() ~ c("{mean} ({sd})")),
-        digits = all_continuous() ~ 2
+        digits = all_continuous() ~ 2,
+        label = list(M1 ~ "M1 /ʃ/",
+                     M2 ~ "M2 /ʃ/")
       ))
+
+sh_table
 
 ```
 
@@ -530,13 +645,14 @@ M2_plot <- M2_des |>
 M2_plot
 
 ```
+
 ## Models
 
 ### Spectral Moment Coefficient for /s/
 
 #### M1
 
-A linear mixed effects model for M1 was conducted for /s/ to examine changes across the three time points (before, sensors, after) for the two speaker groups (control and PD). M1 significantly decreased with sensor placement and the PD group had an overall lower M1 values. Pairwise comparisons also showed that the contrast between sensor placement and after placement was signficiant for the control group.
+A linear mixed effects model for M1 was conducted for /s/ to examine changes across the three time points (before, sensors, after) for the two speaker groups (control and PD). M1 significantly decreased with sensor placement and the PD group had an overall lower M1 values. 
 
 ##### Model Summary
 
@@ -554,7 +670,20 @@ sjPlot::tab_model(M1_s_mod, pred.labels = c("Intercept", "Time Point [Sensors]",
 
 ```
 
+###### Effect Size For Model
+
+Partial eta-squared values were calculated for the M1 /s/ model. The results show a large effect for the main effect of time point and a medium effect for the main effect of group and the interation between group and time point. However, these latter two effect sizes should be interpreted with caution since their confidence intervals contains 0.
+
+```{r}
+
+effectsize::eta_squared(M1_s_mod, alternative = "two.sided")
+
+```
+
+
 ##### Pairwise Comparisons
+
+Pairwise comparisons were conducted using the emmeans package. These comparisons also showed that the contrast between sensor placement and after placement was significant for the control group in addition to before and during sensor placement.
 
 ```{r}
 
@@ -563,9 +692,19 @@ emm_M1_s$contrasts
 
 ```
 
+###### Pairwise Comparison Effect Sizes
 
+Cohen's D for the pairwise contrasts were also calculated to obtain effect sizes. From the output below, we see large effects for the before and during sensors contrast and during sensors and after sensors contrasts for both the he control speakers and PD speakers. Also, there was a large effect size for the contrast between the control and PD speakers before sensor placement.
+
+```{r, message = F, warning = F}
+
+eff_size(emm_M1_s, sigma = sigma(M1_s_mod), edf = df.residual(M1_s_mod))
+
+```
 
 #### M2
+
+##### Model Summary
 
 None of the fixed effects of the /s/ M2 model were significant.
 
@@ -582,11 +721,44 @@ sjPlot::tab_model(M2_s_mod,
 ```
 
 
+###### Effect Size for Model
+
+Although the main effect of time point was not significant in the model, the effect size for time point is large.
+
+```{r}
+
+effectsize::eta_squared(M2_s_mod, alternative = "two.sided")
+
+```
+##### Pairwise Comparisons
+
+Because we saw a large partial eta-squared value for time point, we are following this up with pairwise comparisons. As reported below, none of the pairwise contrasts were significant.
+
+```{r}
+
+emm_M2_s <- emmeans(M2_s_mod, specs = pairwise ~ time_point:group)
+emm_M2_s$contrasts
+
+```
+
+#### Pairwise Comparison Effect Sizes
+
+Although none of the pairwise comparisons were significant, the contrast comparing M1 before and during sensor placement for the PD speakers has a large effect size. However, note the large confidence interval.
+
+```{r, message = F, warning = F}
+
+eff_size(emm_M2_s, sigma = sigma(M2_s_mod), edf = df.residual(M2_s_mod))
+
+```
+
+
 ### Spectral Moment Coefficient for /sh/
 
 #### M1 
 
-None of the fixed effects for the LME model for M1 for /sh/ was significant.
+##### Model Summary
+
+None of the fixed effects for the LME model for M1 for /sh/ were significant.
 
 ```{r, warning = F, message = F}
 
@@ -602,11 +774,43 @@ sjPlot::tab_model(M1_sh_mod, pred.labels = c("Intercept", "Time Point [Sensors]"
 
 ```
 
+
+###### Effect Size for Model
+
+Although none of the fixed effects were significant, partial eta-squared values for the model show a large effect size for time point in this model. The other effect sizes for group and the interaction are low. However, their confidence intervals contain 0, so this is unlikely an important outcome.
+
+```{r}
+
+effectsize::eta_squared(M1_sh_mod, alternative = "two.sided")
+
+```
+##### Pairwise Comparisons
+
+Since there was a large effect shown in the overall model for time point, we ran pairwise comparisons for the /sh/ M1 model. As shown below, none of the contrasts were significant.
+
+```{r}
+
+emm_M1_sh <- emmeans(M1_sh_mod, specs = pairwise ~ time_point:group)
+emm_M1_sh$contrasts
+
+```
+
+###### Pairwise Comparison Effect Sizes
+
+However, when we conducted Cohen's D analysis to get the pairwise comparisons' effect sizes, we see a relatively large effect for the contrast comparing during sensor placement to after sensor removal for the control speakers.
+
+```{r, message = F, warning = F}
+
+eff_size(emm_M1_sh, sigma = sigma(M1_sh_mod), edf = df.residual(M1_sh_mod))
+
+```
+
+
 #### M2
 
 ##### Model Summary
 
-The LME model for /sh/ M2 revealed that M2 was significantly higher during sensor placement compared to before sensors. However, M2 after sensor placement did not significantly differ from before sensor placement. Pairwise comparisons also revealed that M2 during sensor placement and after sensor removal was also significantly decreased for control speakers. 
+The LME model for /sh/ M2 revealed that M2 was significantly higher during sensor placement compared to before sensors. However, M2 after sensor placement did not significantly differ from before sensor placement.
 
 ```{r, warning = F, message = F}
 
@@ -620,7 +824,20 @@ sjPlot::tab_model(M2_sh_mod,
 
 ```
 
+###### Effect Size of the Model
+
+Partial eta-squared was used to obtain effect sizes for the fixed effects in the model above. Based on the output below, the main effect of time point had a large effect.
+
+```{r, message = F, warning = F}
+
+effectsize::eta_squared(M2_sh_mod, alternative = "two.sided")
+
+```
+
+
 ##### Pairwise Comparisons
+
+Pairwise comparisons using the emmeans package were also conducted. These comparisons also revealed that M2 during sensor placement and after sensor removal was also significantly decreased for control speakers. 
 
 ```{r}
 
@@ -629,18 +846,36 @@ emm_M2_sh$contrasts
 
 ```
 
+##### Pairwise Effect Sizes
 
-# Listener Demographics
+Cohen's D for the pairwise comparisons were also calculated to obtain effect sizes for the pairwise contrasts. For the control speaker, the contasts comparing before and during sensor placement and during and after sensor placement had a large effect size. This was also observed for the PD speakers
+
+```{r, message = F, warning = F}
+
+eff_size(emm_M2_sh, sigma = sigma(M2_sh_mod), edf = df.residual(M2_sh_mod))
+
+```
 
 ```{r, warning = F, message = F}
 
-listener_demo |>
+rm(emm_M1_s, emm_M2_s, emm_M1_sh, emm_M2_sh, M1_des, M1_s_mod, M1_sh_mod, M2_s_mod, M2_sh_mod, M2_des, moment_mod, moment_mod_s, moment_mod_sh)
+
+```
+
+
+# Listener Demographics
+
+The listener demographics are presented below. Listeners were women from 18 to 23 years old.
+
+```{r, warning = F, message = F}
+
+demo_listener_table <- listener_demo |>
   select(-c(listener_id, english)) |>
   tbl_summary(type = list(age ~ "continuous",
                           gender ~ "categorical",
                           race ~ "categorical",
                           ethnicity ~ "categorical"),
-              statistic = list(all_continuous() ~ "{mean} ({sd}, {min}-{max})",
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
                                all_categorical() ~ "{n} ({p}%)"),
               digits = list(everything() ~ c(2)),
               label = list(age ~ "Age",
@@ -648,6 +883,18 @@ listener_demo |>
                            race ~ "Race",
                            ethnicity ~ "Ethnicity")) |>
   as_gt()
+
+demo_listener_table
+
+demo_listener_table |>
+  gtsave("Tables/listener_demo.html")
+
+```
+
+
+```{r, echo = F, message = F, warning = F}
+
+rm(listener_demo, demo_listener_table, consonants, vowels)
 
 ```
 
@@ -690,7 +937,7 @@ speaker_intel <- intel_initial |>
   ungroup() |>
   dplyr::left_join(speakers, by = "speaker_id")
 
-speaker_intel |>
+intel_table <- speaker_intel |>
   dplyr::select(group, time_point, intel) |>
   tbl_strata(
     strata = group,
@@ -701,6 +948,8 @@ speaker_intel |>
         digits = all_continuous() ~ 2,
         label = list(intel ~ "Intelligibility")
       ))
+
+intel_table
 
 ```
 
@@ -733,6 +982,8 @@ intel_plot
 
 ## Model
 
+### Model Summary
+
 A linear mixed effects model was conducted to evaluate intelligibility changes across the three time points for the two speaker groups. None of the fixed effects in the model were significant. However, there was a trend of decreased intelligibility during sensor placement.
 
 ```{r, warning = F, message = F}
@@ -743,6 +994,37 @@ sjPlot::tab_model(intel_mod, pred.labels = c("Intercept", "Time Point [Sensors]"
                                             "Group [PD]", "Time Point [Sensors] * Group [PD]",
                                             "Time Point [After] * Group [PD]"),
                   dv.labels = "Intelligibility")
+
+```
+
+
+##### Effect Size
+
+Although none of the fixed effects were significant, the partial eta-sqaured values for the model show a large effect for time point. The main effect of group as well as the interaction between group and time point had large and small effects respectively. However, these results should be interpreted with caution since their confidence intervals contain 0.
+
+```{r}
+
+effectsize::eta_squared(intel_mod, alternative = "two.sided")
+
+```
+### Pairwise Comparisons
+
+Given the large effect size for the main effect of time point, we conducted pairwise comparisons for the model. As noted below, we see significant results for the contrasts  before and during sensor placement and during sensor placement and after sensor removal for the PD speakers. A few of the contrasts comparing speaker groups (i.e. before control and sensors PD), were also significant pointing to some between group differences.
+
+```{r, message = F, warning = F}
+
+emm_intel <- emmeans(intel_mod, specs = pairwise ~ time_point:group)
+emm_intel$contrasts
+
+```
+
+##### Pairwise Effect Sizes
+
+As noted below, several contrasts show a large effect size, such as the difference between control and PD speakers during sensor placement, before and during sensor placement for the PD speakers, and during and after sensor removal for the PD speakers.
+
+```{r, message = F, warning = F}
+
+eff_size(emm_intel, sigma = sigma(intel_mod), edf = df.residual(intel_mod))
 
 ```
 
@@ -784,7 +1066,7 @@ speaker_nat <- nat_initial |>
   ungroup() |>
   dplyr::left_join(speakers, by = "speaker_id")
 
-speaker_nat |>
+nat_table <- speaker_nat |>
   dplyr::select(group, time_point, nat) |>
   tbl_strata(
     strata = group,
@@ -796,12 +1078,13 @@ speaker_nat |>
         label = list(nat ~ "Naturalness")
       ))
 
+nat_table
 
 ```
 
 ## Plot
 
-```{r}
+```{r, message = F, warning = F}
 
 speaker_nat_des <- speaker_nat |>
   dplyr::group_by(group, time_point) |>
@@ -828,7 +1111,7 @@ nat_plot
 
 ## Model
 
-A linear effects model was conducted to evaluate how naturalness ratings changed between the three time points (before, sensors, and after) for the two speaker groups (PD and control). The LME results showed that naturalness was significantly lower during sensor placement compared to before sensors and that PD speakers had lower overall naturalness ratings. Naturalness ratings did not significantly differ before and after sensor placement. Pairwise comparisons also found that naturalness significantly increased from sensor placement to after sensor placement for both the PD and control speakers.
+A linear effects model was conducted to evaluate how naturalness ratings changed between the three time points (before, sensors, and after) for the two speaker groups (PD and control). The LME results showed that naturalness was significantly lower during sensor placement compared to before sensors and that PD speakers had lower overall naturalness ratings. Naturalness ratings did not significantly differ before and after sensor placement. 
 
 ### Model Summary
 
@@ -843,12 +1126,41 @@ sjPlot::tab_model(nat_mod, pred.labels = c("Intercept", "Time Point [Sensors]", 
 
 ```
 
+#### Effect Size
+
+Partial eta-squared analyses show large effect sizes for the main effects of time point and group for the naturalness model. A moderate effect size for the interaction was shown. However, this result is likely not important since the confidence interval contains 0.
+
+```{r, message = F, warning = F}
+
+effectsize::eta_squared(nat_mod, alternative = "two.sided")
+
+```
+
 ### Pairwise Comparisons
 
-```{r}
+Pairwise comparisons also found that naturalness significantly increased from sensor placement to after sensor placement for both the PD and control speakers.
+
+```{r, warning = F, message = F}
 
 emm_nat <- emmeans(nat_mod, specs = pairwise ~ time_point:group)
 emm_nat$contrasts
+
+```
+
+
+#### Pairwise Effect Sizes
+
+Cohen's D effect sizes were calculated for these pairwise contrasts. As seen below, large effects were seen for the before and during sensor contrasts, and the during and after contrasts for both the control and PD speaker groups. A large effect size was also seen for the before and after contrast for the PD speakers. Large effect sizes were also seen for all contrasts between PD and control speakers at each time point.
+
+```{r, warning = F, message = F}
+
+eff_size(emm_nat, sigma = sigma(nat_mod), edf = df.residual(nat_mod))
+
+```
+
+```{r, echo = F, message = F, warning = F}
+
+rm(emm_nat, intel, intel_initial, intel_mod, intel_rel, nat, nat_initial, nat_rel, perceptual_data, speaker_intel, speaker_intel_des, speaker_nat, speaker_nat_des)
 
 ```
 
@@ -902,5 +1214,3 @@ plot_df |>
 ggsave("Figures/perceptual_plot.png", plot = last_plot(), width = 3, height = 6, units = "in")
 
 ```
-
-
