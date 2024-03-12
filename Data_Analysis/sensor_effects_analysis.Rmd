@@ -234,7 +234,7 @@ eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.residual(ar_model))
 
 ```{r, warning = F, message = F}
 
-rm(ar_model, ar_mod, artic_rate_plot, emm_artic_rate, overall_ar)
+rm(ar_model, artic_rate_plot, emm_artic_rate, overall_ar)
 
 ```
 
@@ -388,7 +388,33 @@ effectsize::eta_squared(VSA_model, alternative = "two.sided")
 
 ### Exploratory VSA Model
 
-Although we saw an interesting trend in VSA, the model above
+Although we saw an interesting trend in VSA, the model above showed no significant fixed effects of VSA. It is possible that since we are observing an increase in articulation rate across the three time points, that this may impact the results were are seeing in the VSA model. Therefore, we are running an exploratory model for VSA by adding artic_rate as a covariate in the model. Based on the model output below, adding articulation rate as a covariate did not change the model output much.
+
+```{r, warning = F, message = F}
+
+VSA_mod_2 <- dplyr::left_join(VSA_mod, ar_mod, by=c("speaker_id", "time_point", "group", "sex", "age"))
+
+VSA_model_2 <- lmer(VSA ~ time_point*group + artic_rate_m + (1|speaker_id), data = VSA_mod_2)
+
+sjPlot::tab_model(VSA_model_2,
+                  pred.labels = c("Intercept", "Time Point [Sensors]", "Time Point [After]",
+                                   "Group [PD]", "Articulation Rate", 
+                                   "Time Point [Sensors] * Group [PD]",
+                                   "Time Point [After] * Group [PD]"),
+                  dv.labels = "Vowel Space Area")
+
+```
+
+#### Model Effect Size
+
+Again, partial eta-squared values were calculated. All calculated effect sizes are small.
+
+```{r}
+
+effectsize::eta_squared(VSA_model_2, alternative = "two.sided")
+
+```
+
 
 # Spectral Moment Analysis
 
