@@ -414,6 +414,11 @@ Again, partial eta-squared values were calculated. All calculated effect sizes a
 effectsize::eta_squared(VSA_model_2, alternative = "two.sided")
 
 ```
+```{r, echo = F, warning = F, message = F}
+
+rm(VSA_mod, VSA_mod_2, VSA_model, VSA_model_2)
+
+```
 
 
 # Spectral Moment Analysis
@@ -449,6 +454,7 @@ M1_inter <- M1_rel |>
 cor.test(M1_inter$initial, M1_inter$interrater, method = "pearson", use = "complete.obs")
 
 ```
+
 #### M2
 
 ```{r, warning = F, message = F}
@@ -603,7 +609,7 @@ M2_plot
 
 #### M1
 
-A linear mixed effects model for M1 was conducted for /s/ to examine changes across the three time points (before, sensors, after) for the two speaker groups (control and PD). M1 significantly decreased with sensor placement and the PD group had an overall lower M1 values. Pairwise comparisons also showed that the contrast between sensor placement and after placement was signficiant for the control group.
+A linear mixed effects model for M1 was conducted for /s/ to examine changes across the three time points (before, sensors, after) for the two speaker groups (control and PD). M1 significantly decreased with sensor placement and the PD group had an overall lower M1 values. 
 
 ##### Model Summary
 
@@ -621,7 +627,20 @@ sjPlot::tab_model(M1_s_mod, pred.labels = c("Intercept", "Time Point [Sensors]",
 
 ```
 
+##### Effect Size For Model
+
+Partial eta-squared values were calculated for the M1 /s/ model. The results show a large effect for the main effect of time point and a small effect for group. 
+
+```{r}
+
+effectsize::eta_squared(M1_s_mod, alternative = "two.sided")
+
+```
+
+
 ##### Pairwise Comparisons
+
+Pairwise comparisons were conducted using the emmeans package. These comparisons also showed that the contrast between sensor placement and after placement was significant for the control group in addition to before and during sensor placement.
 
 ```{r}
 
@@ -630,6 +649,13 @@ emm_M1_s$contrasts
 
 ```
 
+##### Pairwise Comparison Effect Sizes
+
+```{r}
+
+eff_size(emm_M1_s, sigma = sigma(M1_s_mod), edf = df.residual(M1_s_mod))
+
+```
 
 
 #### M2
@@ -649,9 +675,42 @@ sjPlot::tab_model(M2_s_mod,
 ```
 
 
+#### Effect Size for Model
+
+Although the main effect of time point was not significant in the model, the effect size for time point is large.
+
+```{r}
+
+effectsize::eta_squared(M2_s_mod, alternative = "two.sided")
+
+```
+#### Pairwise Comparisons
+
+Because we saw a large partial eta-squared value for time point, we are following this up with pairwise comparisons. As reported below, none of the pairwise contrasts were significant.
+
+```{r}
+
+emm_M2_s <- emmeans(M2_s_mod, specs = pairwise ~ time_point:group)
+emm_M2_s$contrasts
+
+```
+
+#### Pairwise Comparison Effect Sizes
+
+Although none of the pairwise comparisons were significant, the contrast comparing M1 before and during sensor placement for the PD speakers has a large effect size. However, note the large confidence interval.
+
+```{r}
+
+eff_size(emm_M2_s, sigma = sigma(M2_s_mod), edf = df.residual(M2_s_mod))
+
+```
+
+
 ### Spectral Moment Coefficient for /sh/
 
 #### M1 
+
+##### Model Summary
 
 None of the fixed effects for the LME model for M1 for /sh/ was significant.
 
@@ -668,6 +727,32 @@ sjPlot::tab_model(M1_sh_mod, pred.labels = c("Intercept", "Time Point [Sensors]"
                   dv.labels = "M1 /ʃ/")
 
 ```
+
+
+##### Effect Size for Model
+
+```{r}
+
+effectsize::eta_squared(M1_sh_mod, alternative = "two.sided")
+
+```
+##### Pairwise Comparisons
+
+```{r}
+
+emm_M1_sh <- emmeans(M1_sh_mod, specs = pairwise ~ time_point:group)
+emm_M1_sh$contrasts
+
+```
+
+##### Pairwise Comparison Effect Sizes
+
+```{r}
+
+eff_size(emm_M1_sh, sigma = sigma(M1_sh_mod), edf = df.residual(M1_sh_mod))
+
+```
+
 
 #### M2
 
@@ -687,12 +772,29 @@ sjPlot::tab_model(M2_sh_mod,
 
 ```
 
+##### Effect Size
+
+```{r}
+
+effectsize::eta_squared(M2_sh_mod, alternative = "two.sided")
+
+```
+
+
 ##### Pairwise Comparisons
 
 ```{r}
 
 emm_M2_sh <- emmeans(M2_sh_mod, specs = pairwise ~ time_point:group)
 emm_M2_sh$contrasts
+
+```
+
+##### Pairwise Effect Sizes
+
+```{r}
+
+eff_size(emm_M2_sh, sigma = sigma(M2_sh_mod), edf = df.residual(M2_sh_mod))
 
 ```
 
