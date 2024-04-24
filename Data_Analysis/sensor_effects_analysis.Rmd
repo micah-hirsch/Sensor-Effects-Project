@@ -36,6 +36,7 @@ library(gtsummary) # install.packages("gtsummary")
 library(sjPlot) # install.packages("sjPlot")
 library(ggpubr) # install.packages("ggpubr")
 library(effectsize) # install.packages("effectsize")
+library(ggsignif) # install.packages("ggsignif")
 
 vowels <- rio::import("Cleaned Data/vowel_measures.csv") |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
@@ -174,40 +175,6 @@ ar_table
 
 ```
 
-
-## Plot
-
-```{r, warning = F, message = F}
-
-my_pal <- natparks.pals("Denali", 6)
-
-overall_ar <- ar_mod |>
-  dplyr::group_by(group, time_point) |>
-  dplyr::summarize(artic_rate = mean(artic_rate_m), sd = sd(artic_rate_m), se = sd/sqrt(n())) |>
-  dplyr::ungroup()
-
-artic_rate_plot <- overall_ar |>
-  ggplot() +
-  aes(x = time_point,
-      y = artic_rate,
-      color = group,
-      group = group) +
-  geom_line() +
-  geom_point() +
-  geom_errorbar(aes(ymin = artic_rate - se, ymax = artic_rate + se)) +
-  labs(x = "Time Point", y = "Articulation Rate (syl/s)") +
-  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
-  theme_classic() +
-  theme(legend.position = "bottom",
-        aspect.ratio = 1)
-
-artic_rate_plot
-
-ggsave("Figures/artic_rate_plot.png", plot = last_plot(), width = 5, height = 5, units = "in")
-
-```
-
-
 ## Model
 
 We are using linear mixed effects models to test the differences in articulation rate across the three time points (before, sensors, and after) for both speaker groups (control and PD). The model results below indicate an increase in articulation rate after sensor removal compared to before sensor placement. 
@@ -223,7 +190,7 @@ sjPlot::tab_model(ar_model, pred.labels = c("Intercept", "Time Point [Sensors]",
                                             "Time Point [After] * Group [PD]"),
                   dv.labels = "Articulation Rate")
 
-```
+``` 
 
 
 #### Model Effect Size
@@ -234,7 +201,7 @@ The partial eta-squared values for the articulation rate model are shown below. 
 
 effectsize::eta_squared(ar_model, alternative = "two.sided")
 
-```
+``` 
 
 ### Pairwise Comparisons
 
@@ -249,7 +216,7 @@ emm_artic_rate$contrasts
 
 #### Pairwise Effect Sizes
 
-Cohen's D effect sizes were also calculated for these pairwise comparisons. The before and after contrast for the control speaker is significant and has a large effect size.
+Cohen's d effect sizes were also calculated for these pairwise comparisons. The before and after contrast for the control speaker is significant and has a large effect size.
 
 ```{r, message = F, warning = F}
 
@@ -258,9 +225,64 @@ eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.residual(ar_model))
 ```
 
 
+## Plot
+
 ```{r, warning = F, message = F}
 
-rm(ar_model, artic_rate_plot, emm_artic_rate, overall_ar, artic_rate)
+my_pal <- natparks.pals("Denali", 6)
+
+model <- ar_model |>
+  sjPlot::plot_model(type = "int")
+
+plot_data <- model[["data"]] |>
+  as.data.frame() |>
+  dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
+                                   labels = c("Before", "Sensors", "After")))
+
+lims_y_ar <- c(0, (base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.45))
+lims_group_ar <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.10
+lims_HC_ar <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.05
+lims_PD_ar <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.40
+
+
+artic_rate_plot <- plot_data |>
+  ggplot() +
+  aes(x = condition,
+      y = predicted,
+      color = group,
+      group = group) +
+  geom_line(position = position_dodge(width = .2),
+            alpha = .5) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                position = position_dodge(width = .2),
+                width = 0,
+                alpha = .5) +
+  labs(x = "Time Point", y = "Articulation Rate (syl/s)") +
+  geom_signif(data = data.frame(Group = c("Before", "Sensors", "After")),
+              aes(y_position = c(rep(lims_HC_ar, 3)),
+                  xmin = c(1.1, 2.1, 1.1),
+                  xmax = c(1.9, 2.9, 2.9),
+                  annotations = c(NA, NA, "*"),
+                  group = c(1,2,3)),
+              vjust = .5,
+              color = my_pal[1],
+              tip_length = 0,
+              manual = T) +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  coord_cartesian(ylim = c(4.4, 6)) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        aspect.ratio = 1)
+
+artic_rate_plot
+
+```
+
+
+```{r, warning = F, message = F}
+
+rm(artic_rate_plot, emm_artic_rate, lims_group_ar, lims_HC_ar, lims_PD_ar, lims_y_ar, artic_rate)
 
 ```
 
@@ -300,6 +322,7 @@ VSA_inter <- VSA_rel |>
 cor.test(VSA_inter$initial, VSA_inter$interrater, method = "pearson", use = "complete.obs")
 
 ```
+
 ### Intrarater Reliability
 
 ```{r, warning = F, message = F}
@@ -346,43 +369,6 @@ VSA_table
 ```
 
 
-## Plot
-
-```{r, warning = F, message = F}
-
-VSA_overall <- VSA_mod |>
-  dplyr::group_by(group, time_point) |>
-  dplyr::summarize(VSA_mean = mean(VSA), VSA_sd = sd(VSA), se = VSA_sd/sqrt(n()))
-
-VSA_plot <- VSA_overall |>
-  ggplot() +
-  aes(x = time_point,
-      y = VSA_mean,
-      group = group,
-      color = group) +
-  geom_point() +
-  geom_line() +
-  geom_errorbar(
-    aes(
-      ymin = VSA_mean - se,
-      ymax = VSA_mean + se),
-    width = .1
-    ) +
-  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
-  labs(
-    x = "Time Point",
-    y = bquote('Vowel Space Area '(kHz^2))) +
-  theme_classic() +
-  theme(legend.position = "bottom",
-        aspect.ratio = 1)
-
-VSA_plot
-
-ggsave("Figures/VSA_plot.png", plot = last_plot(), width = 5, height = 5, units = "in")
-
-
-```
-
 ## Model
 
 A linear mixed effects model was ran to determine the change in VSA between the three time points (before, sensors, and after) for the two speaker groups (control and PD). None of the fixed effects were significant indicating VSA was comparable across the three time points for the two speaker groups.
@@ -411,8 +397,51 @@ effectsize::eta_squared(VSA_model, alternative = "two.sided")
 
 ```
 
+## Plot
 
-### Exploratory VSA Model
+```{r, warning = F, message = F}
+
+model <- VSA_model |>
+  sjPlot::plot_model(type = "int")
+
+plot_data <- model[["data"]] |>
+  as.data.frame() |>
+  dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
+                                   labels = c("Before", "Sensors", "After")))
+
+lims_y_VSA <- c(0, (base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.45))
+lims_group_VSA <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.10
+lims_HC_VSA <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.05
+lims_PD_VSA <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.40
+
+VSA_plot <- plot_data |>
+  ggplot() +
+  aes(x = condition,
+      y = predicted,
+      group = group,
+      color = group) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_line(position = position_dodge(width = .2),
+            alpha = .5) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                position = position_dodge(width = .2),
+                width = 0,
+                alpha = .5) +
+  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  labs(
+    x = "Time Point",
+    y = bquote('Vowel Space Area '(kHz^2))) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        aspect.ratio = 1)
+
+VSA_plot
+
+
+```
+
+
+## Exploratory VSA Model
 
 Although we saw an interesting trend in VSA, the model above showed no significant fixed effects of VSA. It is possible that since we are observing an increase in articulation rate across the three time points, that this may impact the results were are seeing in the VSA model. Therefore, we are running an exploratory model for VSA by adding artic_rate as a covariate in the model. Based on the model output below, adding articulation rate as a covariate did not change the model output much.
 
@@ -432,7 +461,7 @@ sjPlot::tab_model(VSA_model_2,
 ```
 
 
-#### Model Effect Size
+#### Exploratory Model Effect Size
 
 Again, partial eta-squared values were calculated. All calculated effect sizes are small.
 
