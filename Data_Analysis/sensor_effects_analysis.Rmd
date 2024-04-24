@@ -225,7 +225,7 @@ Cohen's d effect sizes were also calculated for these pairwise comparisons. The 
 
 ```{r, message = F, warning = F}
 
-my_pal <- natparks.pals("Arches", 7)
+my_pal <- natparks.pals("Everglades", 6)
 
 ar_contrasts <- ar_contrasts |>
   dplyr::mutate(contrast = gsub("before", "Before", contrast),
@@ -250,7 +250,7 @@ ar_effect_size <- eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.res
       x = effect_size,
       shape = sig,
       alpha = effect) +
-  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 2, color = my_pal[6]) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 2, color = my_pal[2]) +
   geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
                      xmax = ifelse(upper_cl > .35, .35, upper_cl)),
                  size = 2,
@@ -258,14 +258,14 @@ ar_effect_size <- eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.res
   geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
                      xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
                  size = 2,
-                 color = my_pal[7]) +
+                 color = my_pal[1]) +
   geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
                      xmax = ifelse(upper_cl > .75, upper_cl, NA)),
                  size = 2,
-                 color = my_pal[7]) +
+                 color = my_pal[1]) +
   geom_point(size = 2.5) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
-  scale_alpha_discrete(range = c(.4, 1), guide = "none") +
+  scale_alpha_discrete(range = c(.3, 1), guide = "none") +
   scale_shape_manual(values = c(1, 16), guide = "none") +
   labs(x = "Cohen's d Effect Size",
        y = "Contrast",
