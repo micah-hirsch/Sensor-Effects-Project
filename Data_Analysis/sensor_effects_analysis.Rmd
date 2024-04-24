@@ -26,7 +26,7 @@ library(rio) # install.packages("rio")
 library(tidyverse) # install.packages("tidyverse")
 library(geometry) # install.packages("geometry")
 library(patchwork) # install.packages("patchwork")
-library(NatParksPalettes) # install.packages("NatParksPalettes")
+library(NatParksPalettes) #install.packages("NatParksPalettes")
 library(glmmTMB) # install.packages("glmmTMB")
 library(emmeans) # install.packages("emmeans")
 library(lme4) # install.packages("lme4")
@@ -37,6 +37,8 @@ library(sjPlot) # install.packages("sjPlot")
 library(ggpubr) # install.packages("ggpubr")
 library(effectsize) # install.packages("effectsize")
 library(ggsignif) # install.packages("ggsignif")
+library(janitor) # install.packages("janitor")
+library(snakecase) # install.packages("snakecase")
 
 vowels <- rio::import("Cleaned Data/vowel_measures.csv") |>
   dplyr::mutate(time_point = factor(time_point, levels = c("before", "sensors", "after")),
@@ -159,7 +161,7 @@ ar_mod <- artic_rate |>
   dplyr::left_join(speakers, by = "speaker_id") |>
   ungroup()
 
-ar_table <- ar_mod |>
+ar_mod |>
   dplyr::select(c(group, time_point, artic_rate_m)) |>
   tbl_strata(
     strata = group,
@@ -170,8 +172,6 @@ ar_table <- ar_mod |>
         digits = all_continuous() ~ 2,
         label = list(artic_rate_m ~ "Articulation Rate")
       ))
-
-ar_table
 
 ```
 
@@ -210,17 +210,69 @@ We ran pairwise comparisons using the emmeans package. The results below show th
 ```{r, warning = F, message = F}
 
 emm_artic_rate <- emmeans(ar_model, specs = pairwise ~ time_point:group)
-emm_artic_rate$contrasts
+ar_contrasts <- emm_artic_rate$contrasts |>
+  as.data.frame()
+
+ar_contrasts |>
+  gt::gt() |>
+  fmt_number(decimals = 4)
 
 ```
 
 #### Pairwise Effect Sizes
 
-Cohen's d effect sizes were also calculated for these pairwise comparisons. The before and after contrast for the control speaker is significant and has a large effect size.
+Cohen's d effect sizes were also calculated for these pairwise comparisons. The before and after contrast for the control speaker is significant and has a large effect size. No other contrasts had contrasts that were significant.
 
 ```{r, message = F, warning = F}
 
-eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.residual(ar_model))
+my_pal <- natparks.pals("Arches", 7)
+
+ar_contrasts <- ar_contrasts |>
+  dplyr::mutate(contrast = gsub("before", "Before", contrast),
+                contrast = gsub("sensors", "Sensors", contrast),
+                contrast = gsub("after", "After", contrast)) |>
+  dplyr::rename(p_value = p.value) |>
+  dplyr::select(contrast, p_value)
+
+ar_effect_size <- eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.residual(ar_model))|>
+  as.data.frame() |>
+  janitor::clean_names() |>
+  dplyr::mutate(contrast = str_replace_all(contrast, "\\*|\\(|\\)", ""),
+                contrast = gsub("before", "Before", contrast),
+                contrast = gsub("sensors", "Sensors", contrast),
+                contrast = gsub("after", "After", contrast),
+                effect = ifelse(lower_cl <= 0 & upper_cl >= 0, 
+                             F, T)) |>
+  dplyr::left_join(ar_contrasts, by = "contrast") |>
+  dplyr::mutate(sig = ifelse(p_value < .05, T, F)) |>
+  ggplot() +
+  aes(y = contrast,
+      x = effect_size,
+      shape = sig,
+      alpha = effect) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 2, color = my_pal[6]) +
+  geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
+                     xmax = ifelse(upper_cl > .35, .35, upper_cl)),
+                 size = 2,
+                 color = my_pal[3]) +
+  geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
+                     xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
+                 size = 2,
+                 color = my_pal[7]) +
+  geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
+                     xmax = ifelse(upper_cl > .75, upper_cl, NA)),
+                 size = 2,
+                 color = my_pal[7]) +
+  geom_point(size = 2.5) +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
+  scale_alpha_discrete(range = c(.4, 1), guide = "none") +
+  scale_shape_manual(values = c(1, 16), guide = "none") +
+  labs(x = "Cohen's d Effect Size",
+       y = "Contrast",
+       title =  "a) Articulation Rate") +
+  theme_classic()
+
+ar_effect_size
 
 ```
 
@@ -228,8 +280,6 @@ eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.residual(ar_model))
 ## Plot
 
 ```{r, warning = F, message = F}
-
-my_pal <- natparks.pals("Denali", 6)
 
 model <- ar_model |>
   sjPlot::plot_model(type = "int")
@@ -266,10 +316,10 @@ artic_rate_plot <- plot_data |>
                   annotations = c(NA, NA, "*"),
                   group = c(1,2,3)),
               vjust = .5,
-              color = my_pal[1],
+              color = my_pal[5],
               tip_length = 0,
               manual = T) +
-  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  scale_color_manual(values = c(my_pal[5], my_pal[6])) +
   coord_cartesian(ylim = c(4.4, 6)) +
   theme_classic() +
   theme(legend.position = "bottom",
@@ -280,9 +330,9 @@ artic_rate_plot
 ```
 
 
-```{r, warning = F, message = F}
+```{r, echo = F, warning = F, message = F}
 
-rm(artic_rate_plot, emm_artic_rate, lims_group_ar, lims_HC_ar, lims_PD_ar, lims_y_ar, artic_rate)
+rm(ar_mod, artic_rate, model, lims_group_ar, lims_HC_ar, lims_PD_ar, lims_y_ar)
 
 ```
 
@@ -353,7 +403,7 @@ The descriptive statistics for VSA are below. Descriptively, VSA decreased durin
 VSA_mod <- VSA |>
   dplyr::filter(seg_type == "initial")
 
-VSA_table <- VSA_mod |>
+VSA_mod |>
   dplyr::select(c(group, time_point, VSA)) |>
   tbl_strata(
     strata = group,
@@ -363,8 +413,6 @@ VSA_table <- VSA_mod |>
         statistic = list(all_continuous() ~ c("{mean} ({sd})")),
         digits = all_continuous() ~ 2
       ))
-
-VSA_table
 
 ```
 
@@ -409,11 +457,6 @@ plot_data <- model[["data"]] |>
   dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
                                    labels = c("Before", "Sensors", "After")))
 
-lims_y_VSA <- c(0, (base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.45))
-lims_group_VSA <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.10
-lims_HC_VSA <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.05
-lims_PD_VSA <- base::max(plot_data$conf.high) + base::max(plot_data$conf.high)*.40
-
 VSA_plot <- plot_data |>
   ggplot() +
   aes(x = condition,
@@ -427,7 +470,7 @@ VSA_plot <- plot_data |>
                 position = position_dodge(width = .2),
                 width = 0,
                 alpha = .5) +
-  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
+  scale_color_manual(values = c(my_pal[3], my_pal[4])) +
   labs(
     x = "Time Point",
     y = bquote('Vowel Space Area '(kHz^2))) +
@@ -436,7 +479,6 @@ VSA_plot <- plot_data |>
         aspect.ratio = 1)
 
 VSA_plot
-
 
 ```
 
@@ -470,9 +512,11 @@ Again, partial eta-squared values were calculated. All calculated effect sizes a
 effectsize::eta_squared(VSA_model_2, alternative = "two.sided")
 
 ```
+
+
 ```{r, echo = F, warning = F, message = F}
 
-rm(VSA_mod, VSA_mod_2, VSA_model, VSA_model_2, VSA, VSA_overall, ar_mod)
+
 
 ```
 
@@ -616,65 +660,6 @@ sh_table
 ```
 
 
-## Plot
-
-### M1
-
-```{r, warning = F, message = F}
-
-M1_des <- moment_mod |>
-  dplyr::group_by(group, time_point, consonant) |>
-  dplyr::summarize(Mean_M1 = mean(M1), sd = sd(M1), se = sd/sqrt(n()))
-
-M1_plot <- M1_des |>
-  ggplot() +
-  aes(x = time_point,
-      y = Mean_M1,
-      group = group,
-      color = group) +
-  geom_point() +
-  geom_line() +
-  geom_errorbar(aes(ymin = Mean_M1 - se, ymax = Mean_M1 + se), width = 0.1) +
-  labs(x = "Time Point",
-       y = "M1 (kHz)") +
-  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
-  facet_wrap("consonant") +
-  theme_classic() +
-  theme(aspect.ratio = 1)
-
-M1_plot
-
-```
-
-
-### M2
-
-```{r, warning = F, message = F}
-
-M2_des <- moment_mod |>
-  dplyr::group_by(group, time_point, consonant) |>
-  dplyr::summarize(Mean_M2 = mean(M2), sd = sd(M2), se = sd/sqrt(n()))
-
-M2_plot <- M2_des |>
-  ggplot() +
-  aes(x = time_point,
-      y = Mean_M2,
-      group = group,
-      color = group) +
-  geom_point() +
-  geom_line() +
-  geom_errorbar(aes(ymin = Mean_M2 - se, ymax = Mean_M2 + se), width = 0.1) +
-  labs(x = "Time Point",
-       y = "M2 (kHz)") +
-  scale_color_manual(values = c(my_pal[1], my_pal[4])) +
-  facet_wrap("consonant") +
-  theme_classic() +
-  theme(aspect.ratio = 1)
-
-M2_plot
-
-```
-
 ## Models
 
 ### Spectral Moment Coefficient for /s/
@@ -723,7 +708,7 @@ emm_M1_s$contrasts
 
 ###### Pairwise Comparison Effect Sizes
 
-Cohen's D for the pairwise contrasts were also calculated to obtain effect sizes. From the output below, we see large effects for the before and during sensors contrast and during sensors and after sensors contrasts for both the he control speakers and PD speakers. Also, there was a large effect size for the contrast between the control and PD speakers before sensor placement.
+Cohen's D for the pairwise contrasts were also calculated to obtain effect sizes. From the output below, we see large effects for the before and during sensors contrast and during sensors and after sensors contrasts for both the control speakers and PD speakers. Also, there was a large effect size for the contrast between the control and PD speakers before sensor placement.
 
 ```{r, message = F, warning = F}
 
@@ -780,7 +765,6 @@ eff_size(emm_M2_s, sigma = sigma(M2_s_mod), edf = df.residual(M2_s_mod))
 
 ```
 
-
 ### Spectral Moment Coefficient for /sh/
 
 #### M1 
@@ -813,6 +797,7 @@ Although none of the fixed effects were significant, partial eta-squared values 
 effectsize::eta_squared(M1_sh_mod, alternative = "two.sided")
 
 ```
+
 ##### Pairwise Comparisons
 
 Since there was a large effect shown in the overall model for time point, we ran pairwise comparisons for the /sh/ M1 model. As shown below, none of the contrasts were significant.
@@ -877,7 +862,7 @@ emm_M2_sh$contrasts
 
 ##### Pairwise Effect Sizes
 
-Cohen's D for the pairwise comparisons were also calculated to obtain effect sizes for the pairwise contrasts. For the control speaker, the contasts comparing before and during sensor placement and during and after sensor placement had a large effect size. This was also observed for the PD speakers
+Cohen's d for the pairwise comparisons were also calculated to obtain effect sizes for the pairwise contrasts. For the control speaker, the contasts comparing before and during sensor placement and during and after sensor placement had a large effect size. This was also observed for the PD speakers
 
 ```{r, message = F, warning = F}
 
@@ -885,9 +870,113 @@ eff_size(emm_M2_sh, sigma = sigma(M2_sh_mod), edf = df.residual(M2_sh_mod))
 
 ```
 
-```{r, warning = F, message = F}
 
-rm(emm_M1_s, emm_M2_s, emm_M1_sh, emm_M2_sh, M1_des, M1_s_mod, M1_sh_mod, M2_s_mod, M2_sh_mod, M2_des, moment_mod, moment_mod_s, moment_mod_sh)
+## Plot
+
+### M1
+
+```{r}
+
+model1 <- M1_s_mod |>
+  sjPlot::plot_model(type = "int")
+
+model2 <- M1_s_mod |>
+  sjPlot::plot_model(type = "int")
+
+plot_data1 <- model1[["data"]] |>
+  as.data.frame() |>
+  dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
+                                   labels = c("Before", "Sensors", "After")),
+                facet = "/s/")
+
+plot_data2 <- model2[["data"]] |>
+  as.data.frame() |>
+  dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
+                                   labels = c("Before", "Sensors", "After")),
+                facet = "/ʃ/")
+
+
+M1_plot <- plot_data |>
+  ggplot() +
+  aes(x = condition,
+      y = predicted,
+      group = group,
+      color = group) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_line(position = position_dodge(width = .2),
+            alpha = .5) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                position = position_dodge(width = .2),
+                width = 0,
+                alpha = .5) +
+  scale_color_manual(values = c(my_pal[3], my_pal[4])) +
+  labs(
+    x = "Time Point",
+    y = bquote('Vowel Space Area '(kHz^2))) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        aspect.ratio = 1)
+
+M1_plot
+
+
+```
+
+
+### M2
+
+```{r}
+
+model1 <- M2_s_mod |>
+  sjPlot::plot_model(type = "int")
+
+model2 <- M2_sh_mod |>
+  sjPlot::plot_model(type = "int")
+
+plot_data1 <- model1[["data"]] |>
+  as.data.frame() |>
+  dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
+                                   labels = c("Before", "Sensors", "After")),
+                facet = "/s/")
+
+plot_data2 <- model2[["data"]] |>
+  as.data.frame() |>
+  dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
+                                   labels = c("Before", "Sensors", "After")),
+                facet = "/ʃ/")
+
+
+M2_plot <- plot_data |>
+  ggplot() +
+  aes(x = condition,
+      y = predicted,
+      group = group,
+      color = group) +
+  geom_point(position = position_dodge(width = .2)) +
+  geom_line(position = position_dodge(width = .2),
+            alpha = .5) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                position = position_dodge(width = .2),
+                width = 0,
+                alpha = .5) +
+  scale_color_manual(values = c(my_pal[3], my_pal[4])) +
+  labs(
+    x = "Time Point",
+    y = bquote('Vowel Space Area '(kHz^2))) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        aspect.ratio = 1)
+
+M2_plot
+
+
+```
+
+
+
+```{r, echo = F, warning = F, message = F}
+
+
 
 ```
 
@@ -923,9 +1012,18 @@ demo_listener_table |>
 
 ```{r, echo = F, message = F, warning = F}
 
-rm(listener_demo, demo_listener_table, consonants, vowels)
+
 
 ```
+
+
+
+
+
+
+
+
+
 
 
 # Intelligibility
@@ -1036,6 +1134,7 @@ Although none of the fixed effects were significant, the partial eta-sqaured val
 effectsize::eta_squared(intel_mod, alternative = "two.sided")
 
 ```
+
 ### Pairwise Comparisons
 
 Given the large effect size for the main effect of time point, we conducted pairwise comparisons for the model. As noted below, we see significant results for the contrasts  before and during sensor placement and during sensor placement and after sensor removal for the PD speakers. A few of the contrasts comparing speaker groups (i.e. before control and sensors PD), were also significant pointing to some between group differences.
