@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Purpose
 
-The following report documents the data analysis conducted for the sensor effects project.
+The following report documents the data analysis conducted for the sensor effects project. All code for the data analysis and visualizations are provided below. This report also provides supplemental materials to accompany the manuscript.
 
 All data analyses were conducted using R version 4.3.2.
 
@@ -318,8 +318,7 @@ ar_mod |>
       y = artic_rate_m,
       color = group,
       group = speaker_id) +
-  geom_line(position = position_dodge(width = .3),
-            alpha = .8) +
+  geom_line()+
   #geom_point(size = 2, position = position_dodge(width = .3)) +
   labs(x = "Time Point", y = "Articulation Rate (syl/s)") +
   scale_color_manual(values = c(my_pal[1], my_pal[2])) +
@@ -500,6 +499,8 @@ VSA_mod |>
   facet_wrap("group") +
   theme(legend.position = "bottom",
         aspect.ratio = 1)
+
+ggsave("Figures/ind_VSA_plot.png", plot = last_plot())
 
 ```
 
