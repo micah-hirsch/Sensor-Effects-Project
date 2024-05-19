@@ -1449,24 +1449,14 @@ intel_effect_size <- eff_size(emm_intel, sigma = sigma(intel_mod), edf = df.resi
   aes(y = contrast,
       x = effect_size,
       shape = sig,
+      color = effect, 
       alpha = effect) +
-  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1.5, color = my_pal[4]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
-                     xmax = ifelse(upper_cl > .35, .35, upper_cl)),
-                 size = 1.5,
-                 color = my_pal[3]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
-                     xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
-                 size = 1.5,
-                 color = my_pal[5]) +
-  geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
-                     xmax = ifelse(upper_cl > .75, upper_cl, NA)),
-                 size = 1.5,
-                 color = my_pal[5]) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1) +
   geom_point(size = 2.5) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
   scale_alpha_discrete(range = c(.3, 1), guide = "none") +
   scale_shape_manual(values = c(1, 16), guide = "none") +
+  scale_color_manual(values = c("black", my_pal[3])) +
   labs(x = "Cohen's d Effect Size",
        y = "Contrast",
        title =  "Intelligibility") +
@@ -1600,24 +1590,14 @@ nat_effect_size <- eff_size(emm_nat, sigma = sigma(nat_mod), edf = df.residual(n
   aes(y = contrast,
       x = effect_size,
       shape = sig,
+      color = effect,
       alpha = effect) +
-  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1.5, color = my_pal[4]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
-                     xmax = ifelse(upper_cl > .35, .35, upper_cl)),
-                 size = 1.5,
-                 color = my_pal[3]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
-                     xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
-                 size = 1.5,
-                 color = my_pal[5]) +
-  geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
-                     xmax = ifelse(upper_cl > .75, upper_cl, NA)),
-                 size = 1.5,
-                 color = my_pal[5]) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1) +
   geom_point(size = 2.5) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
   scale_alpha_discrete(range = c(.3, 1), guide = "none") +
   scale_shape_manual(values = c(1, 16), guide = "none") +
+  scale_color_manual(values = c("black", my_pal[3])) +
   labs(x = "Cohen's d Effect Size",
        y = "Contrast",
        title =  "Naturalness") +
@@ -1629,6 +1609,8 @@ nat_effect_size
 ```
 
 ## Perceptual Plot
+
+### Group Differences
 
 ```{r, warning = F, message = F}
 
@@ -1660,15 +1642,16 @@ plot_data_percep |>
       y = predicted,
       group = group,
       color = group) +
-  geom_point(position = position_dodge(width = .2)) +
-  geom_line(position = position_dodge(width = .2),
-            alpha = .5) +
+  geom_point(size = 2, position = position_dodge(width = .3)) +
+  geom_line(position = position_dodge(width = .3),
+            alpha = .8) +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-                position = position_dodge(width = .2),
+                position = position_dodge(width = .3),
                 width = 0,
-                alpha = .5) +
+                size = 1,
+                alpha = .8) +
   geom_signif(data = data.frame(Group = c("Before", "Sensors", "After")),
-              aes(y_position = c(rep(15, 6)),
+              aes(y_position = c(rep(120, 6)),
                   xmin = c(1.1, 2.1, 1.1, 1.1, 2.1, 1.1),
                   xmax = c(1.9, 2.9, 2.9, 1.9, 2.9, 1.1),
                   annotations = c(NA, NA, NA, "*", "*", NA),
@@ -1678,7 +1661,7 @@ plot_data_percep |>
               tip_length = 0,
               manual = T) +
   geom_signif(data = data.frame(Group = c("Before", "Sensors", "After")),
-              aes(y_position = c(rep(5, 6)),
+              aes(y_position = c(rep(110, 6)),
                   xmin = c(1.1, 2.1, 1.1, 1.1, 2.1, 1.1),
                   xmax = c(1.9, 2.9, 2.9, 1.9, 2.9, 1.1),
                   annotations = c("*", "*", NA, "*", "*", NA),
@@ -1688,7 +1671,7 @@ plot_data_percep |>
               tip_length = 0,
               manual = T) +
   geom_signif(data = data.frame(Group = c("Before", "Sensors", "After")),
-              aes(y_position = c(rep(25, 6)),
+              aes(y_position = c(rep(100, 6)),
                   xmin = c(.9, 1.9, 2.9, .9, 1.9, 2.9),
                   xmax = c(1.1, 2.1, 3.1, 1.1, 2.1, 3.1),
                   annotations = c(NA, NA, NA, NA, "*", NA),
@@ -1699,17 +1682,53 @@ plot_data_percep |>
               manual = T) +
   facet_wrap("facet") +
   scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  scale_y_continuous(breaks = c(0, 25, 50, 75, 100)) +
   labs(
     x = "Time Point",
     y = "VAS Rating") +
   theme_classic() +
-  coord_cartesian(ylim = c(0, 100)) +
+  coord_cartesian(ylim = c(0, 125)) +
   theme(legend.position = "bottom",
         aspect.ratio = 1)
 
 ggsave("Figures/perceptual_plot.png", plot = last_plot())
 
 ```
+
+### Individual Plot
+
+```{r}
+
+plot_df <- speaker_intel |>
+  dplyr::mutate(type = "Intelligibility") |>
+  dplyr::rename(rating = intel)
+
+nat_df <- speaker_nat |>
+  dplyr::mutate(type = "Naturalness") |>
+  dplyr::rename(rating = nat)
+
+plot_df <- plot_df |>
+  rbind(nat_df)
+
+plot_df |>
+  ggplot() +
+  aes(x = time_point,
+      y = rating,
+      group = speaker_id,
+      color = group) +
+  geom_line() +
+  facet_grid(type ~ group) +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  labs(
+    x = "Time Point",
+    y = "VAS Rating") +
+  theme_classic() +
+  coord_cartesian(ylim = c(0, 100)) +
+  theme(legend.position = "bottom")
+
+```
+
+
 
 ```{r, eval = F}
 
