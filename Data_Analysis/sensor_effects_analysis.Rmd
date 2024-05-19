@@ -211,11 +211,11 @@ ar_contrasts |>
 
 Cohen's d effect sizes were also calculated for these pairwise comparisons. The before and after contrast for the control speaker is significant and has a large effect size. No other comparisons had contrasts that were significant and/or had effect size confidence intervals that do not contain 0.
 
-The plot shown below shows the effect size of each pairwise comparison
+The plot shown below shows the effect size of each pairwise comparison. The comparisons that are faded have effect size CIs that contain zero, while the bolded contrasts have effect size CIs that do not contain 0. A solid dot indicates the contrast was statistically significant. A hollow dot means the contrast was not statistically significant.
 
 ```{r, message = F, warning = F}
 
-my_pal <- c("#6B0F1A",  "#F57E29", "#71C1B2","#32AEAE", "#138690")
+my_pal <- c("#550527", "#82B12F", "#FAA613")
 
 ar_contrasts <- ar_contrasts |>
   dplyr::mutate(contrast = gsub("before", "Before", contrast),
@@ -238,28 +238,18 @@ ar_effect_size <- eff_size(emm_artic_rate, sigma = sigma(ar_model), edf = df.res
   ggplot() +
   aes(y = contrast,
       x = effect_size,
+      color = effect,
       shape = sig,
       alpha = effect) +
-  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 2, color = my_pal[4]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
-                     xmax = ifelse(upper_cl > .35, .35, upper_cl)),
-                 size = 2,
-                 color = my_pal[3]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
-                     xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
-                 size = 2,
-                 color = my_pal[5]) +
-  geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
-                     xmax = ifelse(upper_cl > .75, upper_cl, NA)),
-                 size = 2,
-                 color = my_pal[5]) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1) +
   geom_point(size = 2.5) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
   scale_alpha_discrete(range = c(.3, 1), guide = "none") +
   scale_shape_manual(values = c(1, 16), guide = "none") +
+  scale_color_manual(values = c("black", my_pal[3])) +
   labs(x = "Cohen's d Effect Size",
        y = "Contrast",
-       title =  "a) Articulation Rate") +
+       title =  "Articulation Rate") +
   theme_classic()
 
 ar_effect_size
@@ -268,6 +258,8 @@ ar_effect_size
 
 
 ## Plot
+
+### Group Differences
 
 ```{r, warning = F, message = F}
 
@@ -279,28 +271,24 @@ plot_data_ar <- model_ar[["data"]] |>
   dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
                                    labels = c("Before", "Sensors", "After")))
 
-lims_y_ar <- c(0, (base::max(plot_data_ar$conf.high) + base::max(plot_data_ar$conf.high)*.45))
-lims_group_ar <- base::max(plot_data_ar$conf.high) + base::max(plot_data_ar$conf.high)*.10
-lims_HC_ar <- base::max(plot_data_ar$conf.high) + base::max(plot_data_ar$conf.high)*.05
-lims_PD_ar <- base::max(plot_data_ar$conf.high) + base::max(plot_data_ar$conf.high)*.40
 
-
-artic_rate_plot <- plot_data_ar |>
+plot_data_ar |>
   ggplot() +
   aes(x = condition,
       y = predicted,
       color = group,
       group = group) +
-  geom_line(position = position_dodge(width = .2),
-            alpha = .5) +
-  geom_point(position = position_dodge(width = .2)) +
+  geom_line(position = position_dodge(width = .3),
+            alpha = .8) +
+  geom_point(size = 2, position = position_dodge(width = .3)) +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-                position = position_dodge(width = .2),
+                position = position_dodge(width = .3),
                 width = 0,
-                alpha = .5) +
+                size = 1,
+                alpha = .8) +
   labs(x = "Time Point", y = "Articulation Rate (syl/s)") +
   geom_signif(data = data.frame(Group = c("Before", "Sensors", "After")),
-              aes(y_position = c(rep(lims_HC_ar, 3)),
+              aes(y_position = c(rep(5.5, 3)),
                   xmin = c(1.1, 2.1, 1.1),
                   xmax = c(1.9, 2.9, 2.9),
                   annotations = c(NA, NA, "*"),
@@ -310,14 +298,39 @@ artic_rate_plot <- plot_data_ar |>
               tip_length = 0,
               manual = T) +
   scale_color_manual(values = c(my_pal[1], my_pal[2])) +
-  coord_cartesian(ylim = c(4.4, 6)) +
+  coord_cartesian(ylim = c(4.4, 5.75)) +
   theme_classic() +
   theme(legend.position = "bottom",
         aspect.ratio = 1)
 
-artic_rate_plot
+ggsave("Figures/artic_rate_plot.png")
 
 ```
+
+
+### Individual Speaker Plot
+
+```{r}
+
+ar_mod |>
+  ggplot() +
+  aes(x = time_point,
+      y = artic_rate_m,
+      color = group,
+      group = speaker_id) +
+  geom_line(position = position_dodge(width = .3),
+            alpha = .8) +
+  #geom_point(size = 2, position = position_dodge(width = .3)) +
+  labs(x = "Time Point", y = "Articulation Rate (syl/s)") +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  facet_wrap("group") +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        aspect.ratio = 1)
+
+
+```
+
 
 # Vowel Space Area
 
@@ -430,6 +443,8 @@ effectsize::eta_squared(VSA_model, alternative = "two.sided")
 
 ## Plot
 
+### Group Differences
+
 ```{r, warning = F, message = F}
 
 model_VSA <- VSA_model |>
@@ -440,19 +455,20 @@ plot_data_VSA <- model_VSA[["data"]] |>
   dplyr::mutate(condition = factor(x, levels= c(1, 2, 3), 
                                    labels = c("Before", "Sensors", "After")))
 
-VSA_plot <- plot_data_VSA |>
+plot_data_VSA |>
   ggplot() +
   aes(x = condition,
       y = predicted,
       group = group,
       color = group) +
-  geom_point(position = position_dodge(width = .2)) +
-  geom_line(position = position_dodge(width = .2),
-            alpha = .5) +
+  geom_point(size = 2, position = position_dodge(width = .3)) +
+  geom_line(position = position_dodge(width = .3),
+            alpha = .8) +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-                position = position_dodge(width = .2),
+                position = position_dodge(width = .3),
                 width = 0,
-                alpha = .5) +
+                size = 1,
+                alpha = .8) +
   scale_color_manual(values = c(my_pal[1], my_pal[2])) +
   labs(
     x = "Time Point",
@@ -461,7 +477,29 @@ VSA_plot <- plot_data_VSA |>
   theme(legend.position = "bottom",
         aspect.ratio = 1)
 
-VSA_plot
+ggsave("Figures/VSA_plot.png", plot = last_plot())
+
+```
+
+### Individual Speaker Plot
+
+```{r}
+
+VSA_mod |>
+  ggplot() +
+  aes(x = time_point,
+      y = VSA,
+      group = speaker_id,
+      color = group) +
+  geom_line() +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  labs(
+    x = "Time Point",
+    y = bquote('Vowel Space Area '(kHz^2))) +
+  theme_classic() +
+  facet_wrap("group") +
+  theme(legend.position = "bottom",
+        aspect.ratio = 1)
 
 ```
 
@@ -711,24 +749,14 @@ M1_s_effect_size <- eff_size(emm_M1_s, sigma = sigma(M1_s_mod), edf = df.residua
   aes(y = contrast,
       x = effect_size,
       shape = sig,
+      color = effect,
       alpha = effect) +
-  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1.5, color = my_pal[4]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
-                     xmax = ifelse(upper_cl > .35, .35, upper_cl)),
-                 size = 1.5,
-                 color = my_pal[3]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
-                     xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
-                 size = 1.5,
-                 color = my_pal[5]) +
-  geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
-                     xmax = ifelse(upper_cl > .75, upper_cl, NA)),
-                 size = 1.5,
-                 color = my_pal[5]) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1) +
   geom_point(size = 2.5) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
   scale_alpha_discrete(range = c(.3, 1), guide = "none") +
   scale_shape_manual(values = c(1, 16), guide = "none") +
+  scale_color_manual(values = c("black", my_pal[3])) +
   labs(x = "Cohen's d Effect Size",
        y = "Contrast",
        title =  "M1 /s/") +
@@ -810,24 +838,14 @@ M2_s_effect_size <- eff_size(emm_M2_s, sigma = sigma(M2_s_mod), edf = df.residua
   aes(y = contrast,
       x = effect_size,
       shape = sig,
+      color = effect,
       alpha = effect) +
-  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1.5, color = my_pal[4]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
-                     xmax = ifelse(upper_cl > .35, .35, upper_cl)),
-                 size = 1.5,
-                 color = my_pal[3]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
-                     xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
-                 size = 1.5,
-                 color = my_pal[5]) +
-  geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
-                     xmax = ifelse(upper_cl > .75, upper_cl, NA)),
-                 size = 1.5,
-                 color = my_pal[5]) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1) +
   geom_point(size = 2.5) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
   scale_alpha_discrete(range = c(.3, 1), guide = "none") +
   scale_shape_manual(values = c(1, 16), guide = "none") +
+  scale_color_manual(values = c("black", my_pal[3])) +
   labs(x = "Cohen's d Effect Size",
        y = "Contrast",
        title =  "c) M2 /s/") +
@@ -914,27 +932,17 @@ M1_sh_effect_size <- eff_size(emm_M1_sh, sigma = sigma(M1_sh_mod), edf = df.resi
   aes(y = contrast,
       x = effect_size,
       shape = sig,
+      color = effect,
       alpha = effect) +
-  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1.5, color = my_pal[4]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
-                     xmax = ifelse(upper_cl > .35, .35, upper_cl)),
-                 size = 1.5,
-                 color = my_pal[3]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
-                     xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
-                 size = 1.5,
-                 color = my_pal[5]) +
-  geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
-                     xmax = ifelse(upper_cl > .75, upper_cl, NA)),
-                 size = 1.5,
-                 color = my_pal[5]) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1) +
   geom_point(size = 2.5) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
   scale_alpha_discrete(range = c(.3, 1), guide = "none") +
   scale_shape_manual(values = c(1, 16), guide = "none") +
+  scale_color_manual(values = c("black", my_pal[3])) +
   labs(x = "Cohen's d Effect Size",
        y = "Contrast",
-       title =  "d) M1 /ʃ/") +
+       title =  "M1 /ʃ/") +
   theme_classic()
 
 M1_sh_effect_size
@@ -1016,27 +1024,17 @@ M2_sh_effect_size <- eff_size(emm_M2_sh, sigma = sigma(M2_sh_mod), edf = df.resi
   aes(y = contrast,
       x = effect_size,
       shape = sig,
+      color = effect,
       alpha = effect) +
-  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1.5, color = my_pal[4]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.35 & upper_cl > -.35, -.35, NA),
-                     xmax = ifelse(upper_cl > .35, .35, upper_cl)),
-                 size = 1.5,
-                 color = my_pal[3]) +
-  geom_linerange(aes(xmin = ifelse(lower_cl < -.75, lower_cl, NA),
-                     xmax = ifelse(upper_cl < -.75, upper_cl, -.75)),
-                 size = 1.5,
-                 color = my_pal[5]) +
-  geom_linerange(aes(xmin = ifelse(upper_cl > .75, .75, NA),
-                     xmax = ifelse(upper_cl > .75, upper_cl, NA)),
-                 size = 1.5,
-                 color = my_pal[5]) +
+  geom_linerange(aes(xmin = lower_cl, xmax = upper_cl), size = 1) +
   geom_point(size = 2.5) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
   scale_alpha_discrete(range = c(.3, 1), guide = "none") +
   scale_shape_manual(values = c(1, 16), guide = "none") +
+  scale_color_manual(values = c("black", my_pal[3])) +
   labs(x = "Cohen's d Effect Size",
        y = "Contrast",
-       title =  "e) M2 /ʃ/") +
+       title =  "M2 /ʃ/") +
   theme_classic()
 
 M2_sh_effect_size
@@ -1047,7 +1045,7 @@ M2_sh_effect_size
 
 ## Plot
 
-### M1 for /s/ and /sh/
+### Group Differences in M1 for /s/ and /sh/
 
 ```{r, warning = F, message = F}
 
@@ -1072,26 +1070,22 @@ plot_data2 <- model2[["data"]] |>
 plot_data_M1 <- rbind(plot_data1, plot_data2) |>
   dplyr::mutate(facet = factor(facet, levels = c("/s/", "/ʃ/")))
 
-lims_y_M1 <- c(0, base::max(plot_data_M1$conf.high) + base::max(plot_data_M1$conf.high)*.45)
-lims_group_M1 <- base::max(plot_data_M1$conf.high) + base::max(plot_data_M1$conf.high)*.10
-lims_HC_M1 <- base::max(plot_data_M1$conf.high) + base::max(plot_data_M1$conf.high)*.05
-lims_PD_M1 <- base::max(plot_data_M1$conf.high) + base::max(plot_data_M1$conf.high)*.40
-
 M1_plot <- plot_data_M1 |>
   ggplot() +
   aes(x = condition,
       y = predicted,
       group = group,
       color = group) +
-  geom_point(position = position_dodge(width = .2)) +
+  geom_point(size = 2, position = position_dodge(width = .2)) +
   geom_line(position = position_dodge(width = .2),
-            alpha = .5) +
+            alpha = .8) +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
                 position = position_dodge(width = .2),
                 width = 0,
-                alpha = .5) +
+                size = 1,
+                alpha = .8) +
   geom_signif(data = data.frame(Group = c("Before", "Sensors", "After")),
-              aes(y_position = c(rep(lims_HC_M1, 6)),
+              aes(y_position = c(rep(6.25, 6)),
                   xmin = c(1.1, 2.1, 1.1, 1.1, 2.1, 1.1),
                   xmax = c(1.9, 2.9, 2.9, 1.9, 2.9, 1.1),
                   annotations = c("*", "*", NA, NA, NA, NA),
@@ -1140,11 +1134,6 @@ plot_data2 <- model2[["data"]] |>
 plot_data_M2 <- rbind(plot_data1, plot_data2) |>
   dplyr::mutate(facet = factor(facet, levels = c("/s/", "/ʃ/")))
 
-lims_y_M2 <- c(0, base::max(plot_data_M2$conf.high) + base::max(plot_data_M2$conf.high)*.45)
-lims_group_M2 <- base::max(plot_data_M2$conf.high) + base::max(plot_data_M2$conf.high)*.10
-lims_HC_M2 <- base::max(plot_data_M2$conf.high) + base::max(plot_data_M2$conf.high)*.05
-lims_PD_M2 <- base::max(plot_data_M2$conf.high) + base::max(plot_data_M2$conf.high)*.40
-
 
 M2_plot <- plot_data_M2 |>
   ggplot() +
@@ -1152,15 +1141,16 @@ M2_plot <- plot_data_M2 |>
       y = predicted,
       group = group,
       color = group) +
-  geom_point(position = position_dodge(width = .2)) +
+  geom_point(size = 2, position = position_dodge(width = .2)) +
   geom_line(position = position_dodge(width = .2),
-            alpha = .5) +
+            alpha = .8) +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
                 position = position_dodge(width = .2),
                 width = 0,
-                alpha = .5) +
+                size = 1,
+                alpha = .8) +
   geom_signif(data = data.frame(Group = c("Before", "Sensors", "After")),
-              aes(y_position = c(rep(lims_HC_M2, 6)),
+              aes(y_position = c(rep(3.25, 6)),
                   xmin = c(1.1, 2.1, 1.1, 1.1, 2.1, 1.1),
                   xmax = c(1.9, 2.9, 2.9, 1.9, 2.9, 1.1),
                   annotations = c(NA, NA, NA, NA, "*", NA),
@@ -1183,16 +1173,50 @@ M2_plot
 
 ```
 
+### M1 Individual Speaker Plots
+
+```{r}
+
+moment_mod |>
+  ggplot() +
+  aes(x = time_point,
+      y = M1,
+      group = speaker_id,
+      color = group) +
+  geom_line() +
+  facet_grid(consonant ~ group) +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  labs(
+    x = "Time Point",
+    y =" M1 (kHZ)") +
+  theme_classic() +
+  theme(legend.position = "bottom")
+
+```
+
+### M2 Individual Speaker Plots
+
+```{r}
+
+moment_mod |>
+  ggplot() +
+  aes(x = time_point,
+      y = M2,
+      group = speaker_id,
+      color = group) +
+  geom_line() +
+  facet_grid(consonant ~ group) +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  labs(
+    x = "Time Point",
+    y =" M2 (kHZ)") +
+  theme_classic() +
+  theme(legend.position = "bottom")
+
+```
+
 
 ```{r, eval = F, warning = F, message = F}
-
-# Exporting Artic Rate Plot
-
-ggsave("Figures/artic_rate_plot.png", plot = artic_rate_plot)
-
-# Exporting VSA Plot
-
-ggsave("Figures/VSA_plot.png", plot = VSA_plot)
 
 # Combining Spectral Moment Plots
 
@@ -1234,7 +1258,7 @@ sjPlot::tab_model(M2_s_mod, M2_sh_mod,
 
 ```{r, echo = F}
 
-# Clearning the enviornment from all acoustic data
+# Clearing the environment from all acoustic data
 rm(list=ls())
 
 ```
@@ -1250,7 +1274,7 @@ The listener demographics are presented below. Listeners were women from 18 to 2
 
 # Color Palette for Figures
 
-my_pal <- c("#6B0F1A",  "#F57E29", "#71C1B2","#32AEAE", "#138690")
+my_pal <- c("#550527", "#82B12F", "#FAA613")
 
 # Loading in Perceptual Data
 perceptual_data <- rio::import("Cleaned Data/perceptual_ratings.csv") |>
