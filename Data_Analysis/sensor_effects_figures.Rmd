@@ -1,0 +1,908 @@
+---
+title: "Sensor Effects: Visualizations"
+output: html_notebook
+---
+
+
+# Packages
+
+```{r}
+library(tidyverse)
+library(ggthemes)
+library(ggokabeito)
+```
+
+```{r}
+# Setting the color palette to be used in the figures
+my_pal <- c("#550527", "#82B12F", "#FAA613")
+
+```
+
+
+# Figure 1 - Articulation Rate
+```{r}
+workingData_articRate <- base::readRDS(file = "Data/workingData/data_articRate.RDS")
+
+articRate_plotData <- rbind(
+  # articRate - summary
+  workingData_articRate$plot_summary$data %>%
+    dplyr::mutate(plot = "summary"),
+  # articRate - RQ1
+  workingData_articRate$plot_RQ1$data %>%
+    dplyr::mutate(plot = "RQ1"),
+  # articRate - RQ2
+  workingData_articRate$plot_RQ2$data %>%
+    dplyr::mutate(plot = "RQ2")
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")),
+                plot_label = factor(plot, levels = c("summary", "RQ1", "RQ2"),
+                                    labels = c("Summary Data", "Research Question 1:\nSensor Effects",
+                                               "Research Question 2:\nAfter-sensor Effects")))
+
+articRate_plotData_mainEffects <- rbind(
+  # articRate - RQ1
+  workingData_articRate$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  articRate = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(
+      plot ="RQ1"),
+  
+  # articRate - RQ2
+  workingData_articRate$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  articRate = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(
+      plot ="RQ2")
+  
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")))
+
+  plot_label = c("summary" = "Summary Data",
+                 "RQ1" = "Research Question 1:\nSensor Effects",
+                 "RQ2" = "Research Question 2:\nAfter-sensor Effects")
+
+articRate_plot <- articRate_plotData %>%
+  dplyr::rename(articRate = artic_rate_m) %>%
+  ggplot() +
+  aes(
+    x = time_point,
+    y = articRate,
+    color = group,
+    group = speaker_id,
+    shape = sex,
+    position = plot
+  ) +
+  # Summary Plot
+  geom_point(aes(alpha = plot),
+             position = position_jitter(width = 0.20, seed = 1)) +
+  scale_alpha_manual(values = c(1, 0, 0)) +
+  geom_line(
+    data = articRate_plotData %>%
+      dplyr::rename(articRate = artic_rate_m) %>%
+      dplyr::filter(plot == "summary"),
+    alpha = .1,
+    position = position_jitter(width = 0.20, seed = 1),
+    show.legend = FALSE
+  ) +
+  # RQ Plots
+  geom_line(
+    data = articRate_plotData %>%
+      dplyr::rename(articRate = artic_rate_m) %>%
+      dplyr::filter(plot != "summary"),
+    alpha = .1,
+    show.legend = FALSE
+  ) +
+  # Plotting the main effects
+  geom_line(
+    data = articRate_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = articRate,
+      color = group,
+      group = group
+    ),
+    linewidth = 1,
+    inherit.aes = F,
+    #show.legend = FALSE,
+  ) +
+  # Adding the significance labels
+  ggrepel::geom_text_repel(
+    data = articRate_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = articRate,
+      color = group,
+      group = group,
+      label = sig
+    ),
+    position = position_nudge(x = .1),
+    hjust = 0,
+    box.padding = 0,
+    direction = "y",
+    inherit.aes = F,
+    show.legend = FALSE,
+    seed = 1
+  ) +
+  facet_grid(~plot,
+           scales = "free",
+           labeller = labeller(
+             plot = plot_label
+           )) +
+  labs(x = NULL, y = "Articulation Rate (syl/sec)",
+       title = "Articulation Rate") +
+  guides(color = guide_legend(title = "Group"),
+         shape = guide_legend(title = "Sex"),
+         alpha = "none") +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  ggthemes::theme_clean() &
+  theme(
+    strip.text.x = element_text(hjust = 0),
+    strip.text.y = element_text(angle = 0),
+    plot.background = element_blank(),
+    #panel.margin=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", size = 1),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1), 
+    legend.position = "bottom",
+    legend.background = element_rect(color = NA),
+    aspect.ratio = 1)
+articRate_plot
+
+ggsave(plot = articRate_plot,
+       file = "Figures/F1_articRate.png",
+       height = 3.5,
+       width = 6.5,
+       units = "in",
+       scale = 1.2,
+       bg = "white")
+
+rm(articRate_plotData,
+   articRate_plotData_mainEffects)
+```
+
+# Figure 2 - VSA
+```{r}
+workingData_VSA <- base::readRDS(file = "Data/workingData/data_VSA.RDS")
+
+VSA_plotData <- rbind(
+  # VSA - summary
+  workingData_VSA$plot_summary$data %>%
+    dplyr::mutate(plot = "summary"),
+  # VSA - RQ1
+  workingData_VSA$plot_RQ1$data %>%
+    dplyr::mutate(plot = "RQ1"),
+  # VSA - RQ2
+  workingData_VSA$plot_RQ2$data %>%
+    dplyr::mutate(plot = "RQ2")
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")),
+                plot_label = factor(plot, levels = c("summary", "RQ1", "RQ2"),
+                                    labels = c("Summary Data", "Research Question 1:\nSensor Effects",
+                                               "Research Question 2:\nAfter-sensor Effects")))
+
+VSA_plotData_mainEffects <- rbind(
+  # VSA - RQ1
+  workingData_VSA$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  VSA = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(
+      plot ="RQ1"),
+  
+  # VSA - RQ2
+  workingData_VSA$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  VSA = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(
+      plot ="RQ2")
+  
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")))
+
+  plot_label = c("summary" = "Summary Data",
+                 "RQ1" = "Research Question 1:\nSensor Effects",
+                 "RQ2" = "Research Question 2:\nAfter-sensor Effects")
+
+VSA_summary <- VSA_plotData %>%
+  dplyr::filter(plot == "summary") |>
+  ggplot() +
+  aes(
+    x = time_point,
+    y = VSA,
+    color = group,
+    group = speaker_id,
+    shape = sex
+  ) +
+  geom_point(aes(alpha = plot),
+             position = position_jitter(width = 0.20, seed = 1),
+             show.legend = F) +
+  scale_alpha_manual(values = c(1, 0, 0)) +
+  geom_line(
+    alpha = .1,
+    position = position_jitter(width = 0.20, seed = 1),
+    show.legend = FALSE
+  ) +
+  facet_grid(~plot,
+           scales = "free",
+           labeller = labeller(
+             plot = plot_label
+           )) +
+  labs(x = NULL, y = bquote('Vowel Space Area '(kHz ^ 2)),,
+       title = "Vowel Space Area") +
+  guides(color = guide_legend(title = "Group"),
+         shape = guide_legend(title = "Sex"),
+         alpha = "none") +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  ggthemes::theme_clean() &
+  theme(
+    strip.text.x = element_text(hjust = 0),
+    strip.text.y = element_text(angle = 0),
+    plot.background = element_blank(),
+    #panel.margin=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", size = 1),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1), 
+    legend.position = "bottom",
+    legend.background = element_rect(color = NA),
+    aspect.ratio = 1)
+VSA_summary
+
+VSA_RQ <- VSA_plotData %>%
+  dplyr::filter(plot != "summary") |>
+  ggplot() +
+  aes(
+    x = time_point,
+    y = log(VSA),
+    color = group,
+    group = speaker_id,
+    shape = sex
+  ) +
+  geom_point(aes(alpha = plot)) +
+  scale_alpha_manual(values = c(0, 0, 0)) +
+  geom_line(alpha = .1, show.legend = FALSE) +
+  # Plotting the main effects
+  geom_line(
+    data = VSA_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = log(VSA),
+      color = group,
+      group = group
+    ),
+    linewidth = 1,
+    inherit.aes = F,
+    #show.legend = FALSE,
+  ) +
+  # Adding the significance labels
+  ggrepel::geom_text_repel(
+    data = VSA_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = log(VSA),
+      color = group,
+      group = group,
+      label = sig
+    ),
+    position = position_nudge(x = .1),
+    hjust = 0,
+    box.padding = 0,
+    direction = "y",
+    inherit.aes = F,
+    show.legend = FALSE,
+    seed = 1
+  ) +
+  facet_grid(~plot,
+           scales = "free",
+           labeller = labeller(
+             plot = plot_label
+           )) +
+  labs(x = NULL, y = "Vowel Space Area (log)",) +
+  guides(color = guide_legend(title = "Group"),
+         shape = guide_legend(title = "Sex"),
+         alpha = "none") +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  ggthemes::theme_clean() &
+  theme(
+    strip.text.x = element_text(hjust = 0),
+    strip.text.y = element_text(angle = 0),
+    plot.background = element_blank(),
+    #panel.margin=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", size = 1),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1), 
+    legend.position = "bottom",
+    legend.background = element_rect(color = NA),
+    aspect.ratio = 1)
+VSA_RQ
+
+VSA_plot <- (VSA_summary | VSA_RQ) +
+  patchwork::plot_layout(ncol = 3,
+                         design = "ABB",
+                         guides = "collect") &
+  theme(legend.position='bottom')
+VSA_plot
+
+ggsave(plot = VSA_plot,
+       file = "Figures/F2_VSA.png",
+       height = 3.5,
+       width = 6.5,
+       units = "in",
+       scale = 1.2,
+       bg = "white")
+
+rm(VSA_plotData,
+   VSA_plotData_mainEffects)
+```
+# Figure 3 - M1
+```{r}
+workingData_M1s <- base::readRDS(file = "Data/workingData/data_M1s.RDS")
+workingData_M1sh <- base::readRDS(file = "Data/workingData/data_M1sh.RDS")
+
+M1_plotData <- rbind(
+  # M1s - summary
+  workingData_M1s$plot_summary$data %>%
+    dplyr::mutate(plot = "summary"),
+  # M1s - RQ1
+  workingData_M1s$plot_RQ1$data %>%
+    dplyr::mutate(plot = "RQ1"),
+  # M1s - RQ2
+  workingData_M1s$plot_RQ2$data %>%
+    dplyr::mutate(plot = "RQ2"),
+  
+  # M1sh - summary
+  workingData_M1sh$plot_summary$data %>%
+    dplyr::mutate(plot = "summary"),
+  # M1sh - RQ1
+  workingData_M1sh$plot_RQ1$data %>%
+    dplyr::mutate(plot = "RQ1"),
+  # M1sh - RQ2
+  workingData_M1sh$plot_RQ2$data %>%
+    dplyr::mutate(plot = "RQ2")
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")),
+                plot_label = factor(plot, levels = c("summary", "RQ1", "RQ2"),
+                                    labels = c("Summary Data", "Research Question 1:\nSensor Effects",
+                                               "Research Question 2:\nAfter-sensor Effects")))
+
+M1_plotData_mainEffects <- rbind(
+  # M1s - RQ1
+  workingData_M1s$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  M1 = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(
+      consonant = "/s/",
+      plot ="RQ1"),
+  
+  # M1s - RQ2
+  workingData_M1s$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  M1 = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(
+      consonant = "/s/",
+      plot ="RQ2"),
+  
+  # M1sh - RQ1
+  workingData_M1sh$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  M1 = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(
+      consonant = "/ʃ/",
+      plot ="RQ1"),
+  
+  # M1sh - RQ2
+  workingData_M1sh$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  M1 = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(
+      consonant = "/ʃ/",
+      plot ="RQ2")
+  
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")))
+
+  plot_label = c("summary" = "Summary Data",
+                 "RQ1" = "Research Question 1:\nSensor Effects",
+                 "RQ2" = "Research Question 2:\nAfter-sensor Effects")
+  jittered <- position_jitterdodge(jitter.width = .2, jitter.height = 0, seed = 1,
+                                   dodge.width = .3)
+  
+
+M1_plot <- M1_plotData %>%
+  ggplot() +
+  aes(
+    x = time_point,
+    y = M1,
+    color = group,
+    group = speaker_id,
+    shape = sex
+  ) +
+  # Summary Plot
+  geom_line(
+    data = M1_plotData %>%
+      dplyr::filter(plot == "summary"),
+    alpha = .1,
+    position = jittered,
+    show.legend = FALSE
+  ) +
+  geom_point(aes(alpha = plot), position = jittered) +
+  scale_alpha_manual(values = c(1, 0, 0)) +
+  # RQ Plots
+  geom_line(
+    data = M1_plotData %>%
+      dplyr::filter(plot != "summary"),
+    alpha = .1,
+    show.legend = FALSE
+  ) +
+  # Plotting the main effects
+  geom_line(
+    data = M1_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = M1,
+      color = group,
+      group = group
+    ),
+    linewidth = 1,
+    inherit.aes = F,
+    #show.legend = FALSE,
+  ) +
+  # Adding the significance labels
+  ggrepel::geom_text_repel(
+    data = M1_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = M1,
+      color = group,
+      group = group,
+      label = sig
+    ),
+    position = position_nudge(x = .1),
+    hjust = 0,
+    box.padding = 0,
+    direction = "y",
+    inherit.aes = F,
+    show.legend = FALSE,
+    seed = 1
+  ) +
+  facet_grid(consonant~plot,
+           scales = "free",
+           labeller = labeller(
+             plot = plot_label
+           )) +
+  labs(x = NULL, y = "M1 (kHz)",
+       title = "M1") +
+  guides(color = guide_legend(title = "Group"),
+         shape = guide_legend(title = "Sex"),
+         alpha = "none") +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  ggthemes::theme_clean() &
+  theme(
+    strip.text.x = element_text(hjust = 0),
+    strip.text.y = element_text(angle = 0),
+    plot.background = element_blank(),
+    #panel.margin=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", size = 1),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1), 
+    legend.position = "bottom",
+    legend.background = element_rect(color = NA),
+    aspect.ratio = 1)
+M1_plot
+
+ggsave(plot = M1_plot,
+       file = "Figures/F3_M1.png",
+       height = 5,
+       width = 6.5,
+       units = "in",
+       scale = 1.2,
+       bg = "white")
+
+rm(M1_plotData,
+   M1_plotData_mainEffects,
+   M1_plot)
+```
+
+# Figure 4 - M2
+```{r}
+workingData_M2s <- base::readRDS(file = "Data/workingData/data_M2s.RDS")
+workingData_M2sh <- base::readRDS(file = "Data/workingData/data_M2sh.RDS")
+
+M2_plotData <- rbind(
+  # M2s - summary
+  workingData_M2s$plot_summary$data %>%
+    dplyr::mutate(plot = "summary"),
+  # M2s - RQ1
+  workingData_M2s$plot_RQ1$data %>%
+    dplyr::mutate(plot = "RQ1"),
+  # M2s - RQ2
+  workingData_M2s$plot_RQ2$data %>%
+    dplyr::mutate(plot = "RQ2"),
+  
+  # M2sh - summary
+  workingData_M2sh$plot_summary$data %>%
+    dplyr::mutate(plot = "summary"),
+  # M2sh - RQ1
+  workingData_M2sh$plot_RQ1$data %>%
+    dplyr::mutate(plot = "RQ1"),
+  # M2sh - RQ2
+  workingData_M2sh$plot_RQ2$data %>%
+    dplyr::mutate(plot = "RQ2")
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")),
+                plot_label = factor(plot, levels = c("summary", "RQ1", "RQ2"),
+                                    labels = c("Summary Data", "Research Question 1:\nSensor Effects",
+                                               "Research Question 2:\nAfter-sensor Effects")))
+
+
+M2_plotData_mainEffects <- rbind(
+  # M2s - RQ1
+  workingData_M2s$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  M2 = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(
+      consonant = "/s/",
+      plot ="RQ1"),
+  
+  # M2s - RQ2
+  workingData_M2s$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  M2 = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(
+      consonant = "/s/",
+      plot ="RQ2"),
+  
+  # M2sh - RQ1
+  workingData_M2sh$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  M2 = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(
+      consonant = "/ʃ/",
+      plot ="RQ1"),
+  
+  # M2sh - RQ2
+  workingData_M2sh$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  M2 = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(
+      consonant = "/ʃ/",
+      plot ="RQ2")
+  
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")))
+
+  plot_label = c("summary" = "Summary Data",
+                 "RQ1" = "Research Question 1:\nSensor Effects",
+                 "RQ2" = "Research Question 2:\nAfter-sensor Effects")
+    jittered <- position_jitterdodge(jitter.width = .2, jitter.height = 0, seed = 1,
+                                   dodge.width = .3)
+  
+
+M2_plot <- M2_plotData %>%
+  ggplot() +
+  aes(
+    x = time_point,
+    y = M2,
+    color = group,
+    group = speaker_id,
+    shape = sex
+  ) +
+  # Summary Plot
+  geom_line(
+    data = M2_plotData %>%
+      dplyr::filter(plot == "summary"),
+    alpha = .1,
+    position = jittered,
+    show.legend = FALSE
+  ) +
+  geom_point(aes(alpha = plot), position = jittered) +
+  scale_alpha_manual(values = c(1, 0, 0)) +
+  # RQ Plots
+  geom_line(
+    data = M2_plotData %>%
+      dplyr::filter(plot != "summary"),
+    alpha = .1,
+    show.legend = FALSE
+  ) +
+  # Plotting the main effects
+  geom_line(
+    data = M2_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = M2,
+      color = group,
+      group = group
+    ),
+    linewidth = 1,
+    inherit.aes = F,
+    #show.legend = FALSE,
+  ) +
+  # Adding the significance labels
+  ggrepel::geom_text_repel(
+    data = M2_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = M2,
+      color = group,
+      group = group,
+      label = sig
+    ),
+    position = position_nudge(x = .1),
+    hjust = 0,
+    box.padding = 0,
+    direction = "y",
+    inherit.aes = F,
+    show.legend = FALSE,
+    seed = 3
+  ) +
+  facet_grid(consonant~plot,
+           scales = "free",
+           labeller = labeller(
+             plot = plot_label
+           )) +
+  labs(x = NULL, y = "M2 (kHz)",
+       title = "M2") +
+  guides(color = guide_legend(title = "Group"),
+         shape = guide_legend(title = "Sex"),
+         alpha = "none") +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  ggthemes::theme_clean() &
+  theme(
+    strip.text.x = element_text(hjust = 0),
+    strip.text.y = element_text(angle = 0),
+    plot.background = element_blank(),
+    #panel.margin=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", size = 1),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1), 
+    legend.position = "bottom",
+    legend.background = element_rect(color = NA),
+    aspect.ratio = 1)
+M2_plot
+
+ggsave(plot = M2_plot,
+       file = "Figures/F4_M2.png",
+       height = 5,
+       width = 6.5,
+       units = "in",
+       scale = 1.2,
+       bg = "white")
+
+rm(M2_plotData,
+   M2_plotData_mainEffects,
+   M2_plot)
+```
+
+# Figure 5 - Perceptual Ratings
+```{r}
+workingData_Int <- base::readRDS(file = "Data/workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "Data/workingData/data_Nat.RDS")
+
+perceptual_plotData <- rbind(
+  # Int - summary
+  workingData_Int$plot_summary$data %>%
+    dplyr::mutate(
+      plot = "summary",
+      measure = "Intelligibility") %>%
+    dplyr::rename(Rating = Int),
+  # Int - RQ1
+  workingData_Int$plot_RQ1$data %>%
+    dplyr::mutate(
+      plot = "RQ1",
+      measure = "Intelligibility") %>%
+    dplyr::rename(Rating = Int),
+  # Int - RQ2
+  workingData_Int$plot_RQ2$data %>%
+    dplyr::mutate(
+      plot = "RQ2",
+      measure = "Intelligibility") %>%
+    dplyr::rename(Rating = Int),
+  
+  # Nat - summary
+  workingData_Nat$plot_summary$data %>%
+    dplyr::mutate(
+      plot = "summary",
+      measure = "Naturalness") %>%
+    dplyr::rename(Rating = Nat),
+  # Nat - RQ1
+  workingData_Nat$plot_RQ1$data %>%
+    dplyr::mutate(
+      plot = "RQ1",
+      measure = "Naturalness") %>%
+    dplyr::rename(Rating = Nat),
+  # Nat - RQ2
+  workingData_Nat$plot_RQ2$data %>%
+    dplyr::mutate(
+      plot = "RQ2",
+      measure = "Naturalness") %>%
+    dplyr::rename(Rating = Nat)
+) %>%
+  dplyr::mutate(
+    sex = factor(sex, levels = c("Male", "Female")),
+    plot = factor(plot, levels = c("summary", "RQ1", "RQ2")),
+                plot_label = factor(plot, levels = c("summary", "RQ1", "RQ2"),
+                                    labels = c("Summary Data", "Research Question 1:\nSensor Effects",
+                                               "Research Question 2:\nAfter-sensor Effects")))
+
+perceptual_plotData_mainEffects <- rbind(
+  # Int - RQ1
+  workingData_Int$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  Rating = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(
+      measure = "Intelligibility",
+      plot ="RQ1"),
+  
+  # Int - RQ2
+  workingData_Int$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  Rating = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(
+      measure = "Intelligibility",
+      plot ="RQ2"),
+  
+  # Nat - RQ1
+  workingData_Nat$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  Rating = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(
+      measure = "Naturalness",
+      plot ="RQ1"),
+  
+  # Nat - RQ2
+  workingData_Nat$plotData_mainEffects %>%
+    dplyr::select(group,
+                  time_point = condition,
+                  Rating = predicted,
+                  sig) %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(
+      measure = "Naturalness",
+      plot ="RQ2")
+  
+) %>%
+  dplyr::mutate(plot = factor(plot, levels = c("summary", "RQ1", "RQ2")))
+
+plot_label = c("summary" = "Summary Data",
+                 "RQ1" = "Research Question 1:\nSensor Effects",
+                 "RQ2" = "Research Question 2:\nAfter-sensor Effects")
+  jittered <- position_jitterdodge(jitter.width = .2, jitter.height = 0, seed = 1,
+                                   dodge.width = .3)
+
+  perceptual_plot <- perceptual_plotData %>%
+    ggplot() +
+    aes(
+      x = time_point,
+      y = Rating,
+      color = group,
+      group = speaker_id,
+      shape = sex
+    ) +
+    # Summary Plot
+    geom_line(
+      data = perceptual_plotData %>%
+        dplyr::filter(plot == "summary"),
+      alpha = .1,
+      position = jittered,
+      show.legend = FALSE
+    ) +
+    geom_point(aes(alpha = plot), position = jittered) +
+    scale_alpha_manual(values = c(1, 0, 0)) +
+  # RQ Plots
+  geom_line(
+    data = perceptual_plotData %>%
+      dplyr::filter(plot != "summary"),
+    alpha = .1,
+    show.legend = FALSE
+  ) +
+  # Plotting the main effects
+  geom_line(
+    data = perceptual_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = Rating,
+      color = group,
+      group = group
+    ),
+    linewidth = 1,
+    inherit.aes = F,
+    #show.legend = FALSE,
+  ) +
+  # Adding the significance labels
+  ggrepel::geom_text_repel(
+    data = perceptual_plotData_mainEffects,
+    aes(
+      x = time_point,
+      y = Rating,
+      color = group,
+      group = group,
+      label = sig
+    ),
+    position = position_nudge(x = .1),
+    hjust = 0,
+    box.padding = 0,
+    direction = "y",
+    inherit.aes = F,
+    show.legend = FALSE,
+    seed = 4
+  ) +
+  facet_grid(measure~plot,
+           scales = "free",
+           labeller = labeller(
+             plot = plot_label
+           )) +
+  labs(x = NULL,
+       y = "Rating (VAS)",
+       title = "Perceptual Ratings") +
+  guides(shape = guide_legend(title = "Sex", order = 1),
+         color = guide_legend(title = "Group", order = 2),
+         alpha = "none") +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  ggthemes::theme_clean() &
+  theme(
+    strip.text.x = element_text(hjust = 0),
+    strip.text.y = element_text(angle = 0),
+    plot.background = element_blank(),
+    #panel.margin=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", size = 1),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1), 
+    legend.position = "bottom",
+    legend.background = element_rect(color = NA),
+    aspect.ratio = 1)
+perceptual_plot
+
+ggsave(plot = perceptual_plot,
+       file = "Figures/F5_Perceptual Rating.png",
+       height = 5,
+       width = 6.5,
+       units = "in",
+       scale = 1.2,
+       bg = "white")
+
+rm(perceptual_plotData,
+   perceptual_plotData_mainEffects)
+```
