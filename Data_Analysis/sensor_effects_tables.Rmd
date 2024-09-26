@@ -10,13 +10,11 @@ output: html_notebook
 library(tidyverse)
 library(gt)
 library(tidystats)
+library(gtsummary)
 
 alpha_level <- .05/8 # 8 models, correcting the alpha using Bonferroni method
 ```
 
-# Table 1 - Speaker Demo
-Summary of age, sex, PD severity count, years since diagnosis.
-"For a full description..." supplemental info.
 
 # Table S1 - Speaker Demographics (PD)
 ```{r}
@@ -153,6 +151,7 @@ speakers %>%
     footnote = "Severity labels were previously determined in Thompson & Kim (2024) based on the intelligibility measures using the surrogate-severity measures outlined in Stipancic et al. (2022). Specifically, intelligibility values > 94% are `Normal`, 85% - 94% are `Mild`, 70% - 84% are `Moderate`, 45% - 69% are `Severe`, and < 45% are `Profound`.",
     locations = gt::cells_column_labels(columns = Severity)
   ) |>
+  gt::tab_options(table.font.names = "Times New Roman") |>
 
   gt::gtsave(filename = "Tables/Table S1_Speakers with PD Demographics.html")
 
@@ -239,8 +238,80 @@ speakers %>%
     ),
     fmt = list( ~ gt::fmt_number(., decimals = 2))
   ) |>
+  gt::tab_options(table.font.names = "Times New Roman") |>
 
   gt::gtsave(filename = "Tables/Table S2_Speakers without PD Demographics.html")
+```
+
+# Table 1 - Speaker Demo
+Summary of age, sex, PD severity count, years since diagnosis.
+"For a full description..." supplemental info.
+```{r}
+
+demo_speaker_table <- speakers |>
+  dplyr::mutate(
+    Group = factor(Group, levels = c("Control", "PD"),
+                   labels = c("Speakers without Parkinson's disease",
+                              "Speakers with Parkinson's disease")),
+    Severity = factor(
+    Severity,
+    levels = c("", "Mild", "Moderate", "Severe", "Profound"),
+    labels = c(NA, "Mild", "Moderate", "Severe", "Profound")
+  )) %>%
+  base::rbind(., speakers |>
+  dplyr::mutate(
+    Group = "All Speakers",
+    Severity = NA,
+    dxTime = NA)) |>
+  dplyr::mutate(Group = factor(
+    Group,
+    levels = c(
+      "All Speakers",
+      "Speakers without Parkinson's disease",
+      "Speakers with Parkinson's disease"
+    )
+  )) |>
+  select(-c(speaker_id, MoCA, Rating_M)) |> 
+  gtsummary::tbl_summary(
+        by = Group,
+        type = list(
+          Age ~ "continuous",
+          Sex ~ "categorical",
+          dxTime ~ "continuous",
+          Severity ~ "categorical"
+        ),
+        statistic = list(
+          Age ~ "{mean} ({sd})",
+          dxTime ~ "{mean} ({sd})",
+          all_categorical() ~ "{n} ({p}%)"
+        ),
+        digits = list(everything() ~ c(2), Sex ~ 0, Severity ~ 0),
+        label = list(
+          Age ~ "Age",
+          Sex ~ "Sex",
+          dxTime ~ "Time Since Diagnosis (years)",
+          Severity ~ "Severity"
+        ),
+        missing = "no",
+      ) %>%
+      modify_header(all_stat_cols() ~ "**{level}**") |>
+  gtsummary::modify_table_body(~ .x %>%
+                                 mutate(
+                                   across(all_stat_cols(), ~ gsub("^NA.*", "-", .)),
+                                   across(all_stat_cols(), ~ gsub("^0.*", "-", .))
+                                 )) |>
+  modify_table_styling(
+    columns = label,
+    rows = label == "Severity",
+    footnote = "Severity labels were previously determined in Thompson & Kim (2024) based on the intelligibility measures using the surrogate-severity measures outlined in Stipancic et al. (2022). Specifically, intelligibility values > 94% are 'Normal', 85% - 94% are 'Mild', 70% - 84% are 'Moderate', 45% - 69% are 'Severe', and < 45% are 'Profound'."
+  )
+
+demo_speaker_table
+
+demo_speaker_table |>
+  gtsummary::as_gt() |>
+  gt::tab_options(table.font.names = "Times New Roman") |>
+  gtsave("Tables/Table 1_speaker_demo.html")
 ```
 
 # Table S3 - Listener Demographics
@@ -263,23 +334,27 @@ listener_demo <- rio::import("Data/Cleaned Data/listener_demographics.csv") |>
 # Listener Demographics Table
 demo_listener_table <- listener_demo |>
   select(-c(listener_id, english)) |>
-  tbl_summary(type = list(age ~ "continuous",
+  gtsummary::tbl_summary(type = list(age ~ "continuous",
                           gender ~ "categorical",
                           race ~ "categorical",
                           ethnicity ~ "categorical"),
               statistic = list(all_continuous() ~ "{mean} ({sd})",
                                all_categorical() ~ "{n} ({p}%)"),
-              digits = list(everything() ~ c(2)),
+              digits = list(everything() ~ c(2),
+                            gender ~ 0,
+                            race ~ 0,
+                            ethnicity ~ 0),
               label = list(age ~ "Age",
                            gender ~ "Gender",
                            race ~ "Race",
                            ethnicity ~ "Ethnicity")) |>
-  as_gt()
+  gtsummary::as_gt() |>
+  gt::tab_options(table.font.names = "Times New Roman")
 
 demo_listener_table
 
 demo_listener_table |>
-  gtsave("Tables/listener_demo.html")
+  gtsave("Tables/Table S3_listener_demo.html")
 
 rm(demo_listener_table, listener_demo)
 ```
@@ -390,13 +465,13 @@ tableData %>%
   group_by(row_group) |>
   gt::gt() |>
     tab_spanner(
-    label = "Control",
+    label = "Speakers without Parkinson's Disease",
     columns = contains("Control"),
     level = 2,
     gather = F
   ) |>
   tab_spanner(
-    label = "Parkinson's Disease",
+    label = "Speakers with Parkinson's Disease",
     columns = contains("PD"),
     level = 2,
     gather = F
@@ -407,8 +482,8 @@ tableData %>%
     contains("After") ~ "After Sensors",
     "measure" = "Measure"
   ) |>
-  #tab_options(row_group.as_column = TRUE) |>
-  gt::gtsave(filename = "Tables/T2_Summary Statistics.html")
+  gt::tab_options(table.font.names = "Times New Roman") |>
+  gt::gtsave(filename = "Tables/Table S5_Summary Statistics.html")
 
 
 ```
@@ -438,7 +513,7 @@ sjPlot::tab_model(
   p.threshold = c(alpha_level),
   order.terms = c(1, 4, 5, 6, 2, 7, 3, 8),
   dv.labels = c("Articulation Rate","Vowel Space Area"),
-  file = "Tables/T3_articRate and VSA.html"
+  file = "Tables/Table 2_articRate and VSA.html"
 )
 ```
 
@@ -465,8 +540,7 @@ sjPlot::tab_model(
   p.style = "numeric_stars",
   p.threshold = c(alpha_level),
   order.terms = c(1, 4, 5, 6, 2, 7, 3, 8),
-  dv.labels = c("M1 for /s/","M1 for /ʃ/"),
-  file = "Tables/T4_M1.html"
+  dv.labels = c("M1 for /s/","M1 for /ʃ/")
 )
 
 CI_s <- parameters::ci(workingData_M1s$model) %>%
@@ -740,9 +814,8 @@ M1_tableData %>%
                  "p_sh" = "p") |>
   gt::cols_hide(c(sig_s, sig_sh)) |>
   tab_options(row_group.as_column = TRUE) |>
-  gt::gtsave(filename = "Tables/T4_M1.html")
+  gt::gtsave(filename = "Tables/Table 3_M1.html")
   
-
 ```
 
 # Table 4 - M2
@@ -767,8 +840,7 @@ sjPlot::tab_model(
   p.style = "numeric_stars",
   p.threshold = c(alpha_level),
   order.terms = c(1, 4, 5, 6, 2, 7, 3, 8),
-  dv.labels = c("M2 for /s/","M2 for /ʃ/"),
-  file = "Tables/T5_M2.html"
+  dv.labels = c("M2 for /s/","M2 for /ʃ/")
 )
 
 CI_s <- parameters::ci(workingData_M2s$model) %>%
@@ -1042,7 +1114,7 @@ M2_tableData %>%
                  "p_sh" = "p") |>
   gt::cols_hide(c(sig_s, sig_sh)) |>
   tab_options(row_group.as_column = TRUE) |>
-  gt::gtsave(filename = "Tables/T5_M2.html")
+  gt::gtsave(filename = "Tables/Table 4_M2.html")
   
 
 ```
@@ -1070,7 +1142,7 @@ sjPlot::tab_model(
   p.threshold = c(alpha_level),
   order.terms = c(1, 4, 5, 6, 2, 7, 3, 8),
   dv.labels = c("Intelligibility","Naturalness"),
-  file = "Tables/T6_Perceptual Measures.html"
+  file = "Tables/Table 5_Perceptual Measures.html"
 )
 
 ```
@@ -1444,8 +1516,9 @@ pairwiseContrasts %>%
     footnote = "Positive estimates indicate Before Sensors > With Sensors or Before Sensors > After Sensors; Negative estimates indicate Before Sensors < With Sensors or Before Sensors < After Sensors.",
     locations = gt::cells_column_labels(columns = contains("estimate"))
   ) |>
+  gt::tab_options(table.font.names = "Times New Roman") |>
   
-  gt::gtsave(filename = "Tables/Table SN_Pairwise Comparisons.html")
+  gt::gtsave(filename = "Tables/Table S6_Pairwise Comparisons.html")
   
   
 
