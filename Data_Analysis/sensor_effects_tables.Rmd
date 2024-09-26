@@ -14,6 +14,10 @@ library(tidystats)
 alpha_level <- .05/8 # 8 models, correcting the alpha using Bonferroni method
 ```
 
+# Table 1 - Speaker Demo
+Summary of age, sex, PD severity count, years since diagnosis.
+"For a full description..." supplemental info.
+
 # Table S1 - Speaker Demographics (PD)
 ```{r}
 
@@ -283,7 +287,7 @@ rm(demo_listener_table, listener_demo)
 
 # Table S4 - Passage Sections
 
-# Table 2 - Summary Measures
+# Table S5 - Summary Measures
 ```{r}
 workingData_articRate <- base::readRDS(file = "Data/workingData/data_articRate.RDS")
 workingData_VSA <- base::readRDS(file = "Data/workingData/data_VSA.RDS")
@@ -411,7 +415,7 @@ tableData %>%
 
 
 
-# Table 3 - ArticRate & VSA
+# Table 2 - ArticRate & VSA
 ```{r}
 workingData_articRate <- base::readRDS(file = "Data/workingData/data_articRate.RDS")
 workingData_VSA <- base::readRDS(file = "Data/workingData/data_VSA.RDS")
@@ -439,7 +443,7 @@ sjPlot::tab_model(
 ```
 
 
-# Table 4 - M1
+# Table 3 - M1
 ```{r}
 workingData_M1s <- base::readRDS(file = "Data/workingData/data_M1s.RDS")
 workingData_M1sh <- base::readRDS(file = "Data/workingData/data_M1sh.RDS")
@@ -741,7 +745,7 @@ M1_tableData %>%
 
 ```
 
-# Table 5 - M2
+# Table 4 - M2
 ```{r}
 workingData_M2s <- base::readRDS(file = "Data/workingData/data_M2s.RDS")
 workingData_M2sh <- base::readRDS(file = "Data/workingData/data_M2sh.RDS")
@@ -1043,7 +1047,7 @@ M2_tableData %>%
 
 ```
 
-# Table 6 - Perceptual Plots
+# Table 5 - Perceptual Measures
 ```{r}
 workingData_Int <- base::readRDS(file = "Data/workingData/data_Int.RDS")
 workingData_Nat <- base::readRDS(file = "Data/workingData/data_Nat.RDS")
@@ -1071,7 +1075,7 @@ sjPlot::tab_model(
 
 ```
 
-# Table S5 - Pairwise Comparisons
+# Table S6 - Pairwise Comparisons
 ```{r}
 workingData_articRate <- base::readRDS(file = "Data/workingData/data_articRate.RDS")
 workingData_VSA <- base::readRDS(file = "Data/workingData/data_VSA.RDS")
