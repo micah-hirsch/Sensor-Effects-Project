@@ -31,6 +31,7 @@ library(glmmTMB) # install.packages("glmmTMB")
 library(emmeans) # install.packages("emmeans")
 library(lme4) # install.packages("lme4")
 library(lmerTest) # install.packages("lmerTest")
+library(robustlmm) # install.packages("robustlmm")
 library(gt) # install.packages("gt")
 library(gtsummary) # install.packages("gtsummary")
 library(sjPlot) # install.packages("sjPlot")
@@ -580,7 +581,7 @@ A linear mixed effects model was ran to determine the change in VSA between the 
 
 ```{r, warning = F, message = F}
 
-VSA_model <- lmerTest::lmer(log(VSA) ~ time_point * group + sex + age + (1 | speaker_id),
+VSA_model <- lmerTest::lmer(VSA ~ time_point * group + sex + age + (1 | speaker_id),
                  data = VSA_modelData)
 summary(VSA_model)
 anova(VSA_model)
@@ -2481,6 +2482,17 @@ cor.test(Int$rating, Int$rating_rel, method = "pearson", use = "complete.obs")
 rm(Int, Int_rel)
 
 ```
+### Inter-listener Reliability
+```{r}
+Int_interRel <- Int_initial |>
+  dplyr::group_by(speaker_id, time_point) |>
+  dplyr::summarize(M = mean(rating),
+                   SD = sd(rating)) |>
+  ungroup() |>
+  dplyr::left_join(speakers, by = "speaker_id")
+
+```
+
 
 ### Descriptives
 
@@ -2490,7 +2502,8 @@ Descriptive results for intelligibility are presented below. Overall, intelligib
 
 Int_modelData <- Int_initial |>
   dplyr::group_by(speaker_id, time_point) |>
-  dplyr::summarize(Int = mean(rating)) |>
+  dplyr::summarize(Int = mean(rating),
+                   Int_sd = sd(rating)) |>
   ungroup() |>
   dplyr::left_join(speakers, by = "speaker_id")
 
@@ -2859,7 +2872,8 @@ Naturalness ratings appear to be lower for both groups compared to intelligility
 
 Nat_modelData <- Nat_initial |>
   dplyr::group_by(speaker_id, time_point) |>
-  dplyr::summarize(Nat = mean(rating)) |>
+  dplyr::summarize(Nat = mean(rating),
+                   Nat_sd = sd(rating)) |>
   ungroup() |>
   dplyr::left_join(speakers, by = "speaker_id")
 
@@ -2891,7 +2905,8 @@ performance::check_distribution(Nat_modelData$Nat)
 Nat_model <- robustlmm::rlmer(Nat ~ time_point*group + sex + age + (1|speaker_id), data = Nat_modelData)
 
 summary(Nat_model)
-performance::check_heteroscedasticity(Nat_model)
+#performance::check_model(Nat_model)
+#performance::check_heteroscedasticity(Nat_model)
 performance::check_collinearity(Nat_model)
 
 

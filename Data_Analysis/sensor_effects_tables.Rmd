@@ -404,10 +404,12 @@ allData <- rbind(
     dplyr::rename(value = M2),
   
   workingData_Int$modelData %>%
+    dplyr::select(!Int_sd) %>%
     dplyr::mutate(measure = "Intelligibility") %>%
     dplyr::rename(value = Int),
   
   workingData_Nat$modelData %>%
+    dplyr::select(!Nat_sd) %>%
     dplyr::mutate(measure = "Naturalness") %>%
     dplyr::rename(value = Nat)
 ) %>%
@@ -448,7 +450,7 @@ tableData <- rbind(
                                             "Intelligibility",
                                             "Naturalness"),
                                  labels = c("Articulation Rate (syl/s)",
-                                            "Vowel Space Area (kHz2)",
+                                            "Acoustic Vowel Space Area (kHz2)",
                                             "M1 for /s/",
                                             "M2 for /s/",
                                             "M1 for /ʃ/",
@@ -512,7 +514,7 @@ sjPlot::tab_model(
   p.style = "numeric_stars",
   p.threshold = c(alpha_level),
   order.terms = c(1, 4, 5, 6, 2, 7, 3, 8),
-  dv.labels = c("Articulation Rate","Vowel Space Area"),
+  dv.labels = c("Articulation Rate","Acoustic Vowel Space Area"),
   file = "Tables/Table 2_articRate and VSA.html"
 )
 ```
@@ -1450,7 +1452,7 @@ pairwiseContrasts <- rbind(
                                             "Int",
                                             "Nat"),
                                  labels = c("Articulation Rate (syl/s)",
-                                            "Vowel Space Area (log)",
+                                            "Acoustic Vowel Space Area (log)",
                                             "M1 for /s/",
                                             "M2 for /s/",
                                             "M1 for /ʃ/",

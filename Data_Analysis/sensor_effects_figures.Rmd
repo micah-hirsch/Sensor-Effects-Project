@@ -155,7 +155,7 @@ articRate_plot <- articRate_plotData %>%
 articRate_plot
 
 ggsave(plot = articRate_plot,
-       file = "Figures/F1_articRate.png",
+       file = "Figures/Figure 1_articRate.png",
        height = 3.5,
        width = 6.5,
        units = "in",
@@ -238,8 +238,8 @@ VSA_summary <- VSA_plotData %>%
            labeller = labeller(
              plot = plot_label
            )) +
-  labs(x = NULL, y = bquote('Vowel Space Area '(kHz ^ 2)),,
-       title = "Vowel Space Area") +
+  labs(x = NULL, y = bquote('Acoustic Vowel Space Area '(kHz ^ 2)),,
+       title = "Acoustic Vowel Space Area") +
   guides(color = guide_legend(title = "Group"),
          shape = guide_legend(title = "Sex"),
          alpha = "none") +
@@ -334,7 +334,7 @@ VSA_plot <- (VSA_summary | VSA_RQ) +
 VSA_plot
 
 ggsave(plot = VSA_plot,
-       file = "Figures/F2_VSA.png",
+       file = "Figures/Figure 2_VSA.png",
        height = 3.5,
        width = 6.5,
        units = "in",
@@ -513,7 +513,7 @@ M1_plot <- M1_plotData %>%
 M1_plot
 
 ggsave(plot = M1_plot,
-       file = "Figures/F3_M1.png",
+       file = "Figures/Figure 3_M1.png",
        height = 5,
        width = 6.5,
        units = "in",
@@ -695,7 +695,7 @@ M2_plot <- M2_plotData %>%
 M2_plot
 
 ggsave(plot = M2_plot,
-       file = "Figures/F4_M2.png",
+       file = "Figures/Figure 4_M2.png",
        height = 5,
        width = 6.5,
        units = "in",
@@ -715,18 +715,21 @@ workingData_Nat <- base::readRDS(file = "Data/workingData/data_Nat.RDS")
 perceptual_plotData <- rbind(
   # Int - summary
   workingData_Int$plot_summary$data %>%
+    dplyr::select(!Int_sd) %>%
     dplyr::mutate(
       plot = "summary",
       measure = "Intelligibility") %>%
     dplyr::rename(Rating = Int),
   # Int - RQ1
   workingData_Int$plot_RQ1$data %>%
+    dplyr::select(!Int_sd) %>%
     dplyr::mutate(
       plot = "RQ1",
       measure = "Intelligibility") %>%
     dplyr::rename(Rating = Int),
   # Int - RQ2
   workingData_Int$plot_RQ2$data %>%
+    dplyr::select(!Int_sd) %>%
     dplyr::mutate(
       plot = "RQ2",
       measure = "Intelligibility") %>%
@@ -734,18 +737,21 @@ perceptual_plotData <- rbind(
   
   # Nat - summary
   workingData_Nat$plot_summary$data %>%
+    dplyr::select(!Nat_sd) %>%
     dplyr::mutate(
       plot = "summary",
       measure = "Naturalness") %>%
     dplyr::rename(Rating = Nat),
   # Nat - RQ1
   workingData_Nat$plot_RQ1$data %>%
+    dplyr::select(!Nat_sd) %>%
     dplyr::mutate(
       plot = "RQ1",
       measure = "Naturalness") %>%
     dplyr::rename(Rating = Nat),
   # Nat - RQ2
   workingData_Nat$plot_RQ2$data %>%
+    dplyr::select(!Nat_sd) %>%
     dplyr::mutate(
       plot = "RQ2",
       measure = "Naturalness") %>%
@@ -896,7 +902,7 @@ plot_label = c("summary" = "Summary Data",
 perceptual_plot
 
 ggsave(plot = perceptual_plot,
-       file = "Figures/F5_Perceptual Rating.png",
+       file = "Figures/Figure 5_Perceptual Rating.png",
        height = 5,
        width = 6.5,
        units = "in",
@@ -906,3 +912,91 @@ ggsave(plot = perceptual_plot,
 rm(perceptual_plotData,
    perceptual_plotData_mainEffects)
 ```
+
+# Figure S1 - Inter-listener Reliability
+```{r}
+workingData_Int <- base::readRDS(file = "Data/workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "Data/workingData/data_Nat.RDS")
+
+interRel_plotData <- rbind(
+  workingData_Int$modelData %>%
+    dplyr::select(c(
+      speaker_id,
+      `Time Point` = time_point,
+      M = Int,
+      sd = Int_sd,
+      Group = group,
+      Sex = sex,
+      age
+    )
+    ) %>%
+    dplyr::mutate(
+      Measure = "Intelligibility"
+    ),
+  workingData_Nat$modelData %>%
+    dplyr::select(c(
+      speaker_id,
+      `Time Point` = time_point,
+      M = Nat,
+      sd = Nat_sd,
+      Group = group,
+      Sex = sex,
+      age
+    )
+    ) %>%
+    dplyr::mutate(
+      Measure = "Naturalness"
+    )
+) %>%
+  dplyr::mutate(`Time Point` = factor(`Time Point`,
+                                      levels = c("before",
+                                                 "sensors",
+                                                 "after"),
+                                      labels = c("Before Sensors",
+                                                 "With Sensors",
+                                                 "After Sensors")),
+                Measure = factor(Measure,
+                                 levels = c("Intelligibility",
+                                            "Naturalness"),
+                                 labels = c("Intelligibility Ratings",
+                                            "Naturalness Ratings")))
+
+interRel_plot <- interRel_plotData %>%
+  ggplot() +
+  aes(
+    x = M,
+    y = sd,
+    color = Group,
+    shape = `Time Point`
+  ) +
+  geom_point() +
+  facet_wrap(~Measure) +
+  labs(x = "Average Rating (Mean)",
+       y = "Rating Variability (sd)",
+       title = "Inter-listener Reliability",
+       subtitle = "The mean and standard deviation of ratings across speakers and time points.") +
+  scale_color_manual(values = c(my_pal[1], my_pal[2])) +
+  ggthemes::theme_clean() &
+  theme(
+    strip.text.x = element_text(hjust = 0, size = 12),
+    strip.text.y = element_text(angle = 0),
+    plot.background = element_blank(),
+    #panel.margin=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", size = 1),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1), 
+    legend.position = "bottom",
+    legend.background = element_rect(color = NA),
+    aspect.ratio = 1)
+
+interRel_plot
+
+ggsave(plot = interRel_plot,
+       file = "Figures/Figure S1_Inter-Listener Reliability.png",
+       height = 4,
+       width = 6.5,
+       units = "in",
+       scale = 1.2,
+       bg = "white")
+```
+
