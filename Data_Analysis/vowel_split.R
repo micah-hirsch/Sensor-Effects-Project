@@ -165,10 +165,16 @@ vowels <- phonemes |>
                   pattern = "l",
                   replacement = "",
                   x = label),
-                vowel = base::tolower(vowel))
+                vowel = base::tolower(vowel)) |>
+  dplyr::filter(!is.na(path))
+
+vowels <- vowels |>
+  dplyr::group_by(path, vowel) |> # Group by recording and vowel
+  dplyr::mutate(position = row_number()) |> # Create position label
+  dplyr::ungroup()
 
 ## Extracting F1 and F2 from temporal midpoint
-k <- 2
+k <- 1
 while (k <= nrow(vowels)) {
   
   targetFile <- vowels |>
@@ -189,7 +195,7 @@ while (k <= nrow(vowels)) {
                   Start = currentTarget$onset,
                   End = currentTarget$offset) |>
     rPraat::snd.write(paste0(targetFile, "_", currentTarget$vowel,"_", 
-                             currentTarget$Row, "_target.wav"))
+                             currentTarget$position, ".wav"))
   
   k <- k + 1 
 }
