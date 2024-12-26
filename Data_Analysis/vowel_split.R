@@ -173,6 +173,14 @@ vowels <- vowels |>
   dplyr::mutate(position = row_number()) |> # Create position label
   dplyr::ungroup()
 
+speakers <- speakers |>
+  dplyr::select(speaker_id)
+
+for (i in 1:nrow(speakers)) {
+  dir.create(paste0('Vowels/', speakers$speaker_id[i]))
+  dir.create(paste0('Vowels/', speakers$speaker_id[i], "/sounds"))
+}
+
 ## Extracting F1 and F2 from temporal midpoint
 k <- 1
 while (k <= nrow(vowels)) {
@@ -185,6 +193,7 @@ while (k <= nrow(vowels)) {
   currentTarget <- vowels |>
     dplyr::mutate(onset = onset,
                   offset = offset) |>
+    dplyr::mutate(sound_file = str_extract(path, "[^/]+$")) |>
     slice(k)
   
   # Loading in the sound wav
@@ -194,8 +203,12 @@ while (k <= nrow(vowels)) {
   rPraat::snd.cut(sndWav,
                   Start = currentTarget$onset,
                   End = currentTarget$offset) |>
-    rPraat::snd.write(paste0(targetFile, "_", currentTarget$vowel,"_", 
+    rPraat::snd.write(paste0("Vowels/", 
+                             currentTarget$speaker_id, "/sounds/", 
+                             currentTarget$sound_file,"_", 
+                             currentTarget$vowel,"_", 
                              currentTarget$position, ".wav"))
   
   k <- k + 1 
+  
 }
