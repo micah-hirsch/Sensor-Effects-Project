@@ -181,7 +181,7 @@ for (i in 1:nrow(speakers)) {
   dir.create(paste0('Vowels/', speakers$speaker_id[i], "/sounds"))
 }
 
-## Extracting F1 and F2 from temporal midpoint
+w## Extracting F1 and F2 from temporal midpoint
 k <- 1
 while (k <= nrow(vowels)) {
   
@@ -191,8 +191,8 @@ while (k <= nrow(vowels)) {
     as.character()
   
   currentTarget <- vowels |>
-    dplyr::mutate(onset = onset,
-                  offset = offset) |>
+    dplyr::mutate(onset = onset - 0.10,
+                  offset = offset + 0.10) |>
     dplyr::mutate(sound_file = str_extract(path, "[^/]+$")) |>
     slice(k)
   
