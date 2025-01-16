@@ -191,8 +191,8 @@ while (k <= nrow(vowels)) {
     as.character()
   
   currentTarget <- vowels |>
-    dplyr::mutate(onset = onset - 0.10,
-                  offset = offset + 0.10) |>
+    dplyr::mutate(onset = onset - 0.05,
+                  offset = offset + 0.05) |>
     dplyr::mutate(sound_file = str_extract(path, "[^/]+$")) |>
     slice(k)
   
