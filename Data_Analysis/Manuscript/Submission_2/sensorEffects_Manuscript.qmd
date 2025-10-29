@@ -1,0 +1,960 @@
+---
+title: "The Effects of Electromagnetic Articulography Sensors on Speech in Individuals with and without Parkinson’s Disease"
+author: "Austin Thompson^1^, Micah Hirsch^2^, and Yunjung Kim^3^"
+abstract: |
+  1.	Department of Communication Sciences and Disorders, University of Houston
+  2.	Department of Speech, Language, and Hearing Sciences, Boston University
+  3.	School of Communication Science and Disorders, Florida State University
+format:
+  docx:
+    # this holds the style template for the word document
+    reference-doc: "../templates-data/custom-reference.docx"
+    # this holds the style template for the word document
+    pandoc_args: ["-Fpandoc-crossref"]
+  html:
+    toc: true
+    toc_float: true
+    html-math-method: katex
+    css: styles.css
+    embed-resources: true
+    self-contained-math: true
+    fig-cap-location: top
+editor: visual
+bibliography: references.bib
+csl: "apa.csl"
+crossref:
+  custom:
+    - kind: float
+      key: supptbl
+      latex-env: supptbl
+      reference-prefix: Table S
+      space-before-numbering: false
+      latex-list-of-description: Supplementary Table
+    - kind: float
+      key: suppfig
+      latex-env: suppfig
+      reference-prefix: Figure S
+      space-before-numbering: false
+      latex-list-of-description: Supplementary Figure
+---
+
+::: {custom-style="noIndentParagraph"}
+<br>
+
+**Conflicts of Interest**:\
+The authors have no relevant financial or non-financial information to disclose.
+
+<br>
+
+**Corresponding Author**:\
+Austin Thompson, PhD, CCC-SLP\
+athomp27\@central.uh.edu
+
+<br>
+
+**Authorship Contributions** (CRediT taxonomy - https://casrai.org/credit/)\
+*Author Roles*: ^1^conceptualization, ^2^data curation, ^3^formal analysis, ^4^funding acquisition, ^5^investigation, ^6^methodology, ^7^project administration, ^8^resources, ^9^software, ^10^supervision, ^11^validation, ^12^visualization, ^13^writing -- original draft, ^14^writing -- reviewing & editing
+
+AT: 1, 2, 3, 4, 5, 6, 9, 11, 12, 14\
+MH: 3, 5, 6, 7, 9, 11, 12, 13, 14\
+YK: 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14
+
+<br>
+
+**Ethical Approval**: This study was approved by the Florida State University’s Institutional Review Board (FSU IRB: 00002525).
+
+<br>
+
+**Keywords**: Dysarthria; Acoustics; electromagnetic articulography
+
+\newpage
+:::
+
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+library(tidyverse)
+library(quarto)
+
+```
+
+# Abstract
+
+::: {custom-style="noIndentParagraph"}
+**Purpose:** This study examined how wearing electromagnetic articulography (EMA) sensors affects acoustic and perceptual speech outcomes in people with Parkinson's disease (PwPD) with dysarthria and neurologically healthy control speakers. Additionally, the study explored potential after-effects on acoustic and perceptual measures following approximately 45 minutes of wearing EMA sensors in both groups. Finally, we investigated whether wearing EMA sensors or after-sensor effects differentially impacted the two groups.
+
+**Methods:** Thirty-four speakers (21 Controls and 13 PwPD) read "The Caterpillar" passage at three time points: (1) Before Sensors, (2) With Sensors, and (3) After Sensors. We analyzed changes in acoustic (articulation rate, articulatory-acoustic vowel space \[AAVS\], first and second spectral moment coefficients for fricatives) and perceptual (speech intelligibility, naturalness) measures across two key contrasts: sensor effects (With Sensors - Before Sensors) and after-sensor effects (After Sensors - Before Sensors).
+
+**Results:** Bayesian linear mixed-effects models showed sensor effects (With Sensors - Before Sensors), with EMA sensors reducing intelligibility and naturalness and altering fricative spectral moments in both groups. Additionally, Control speakers exhibited a faster articulation rate with sensors. Notably, PwPD were more negatively impacted by sensor effects in terms of intelligibility ratings. After-sensor effects (After Sensors - Before Sensors) were also observed: Control speakers spoke faster following sensor removal, while PwPD demonstrated increased AAVS and were perceived as more natural. However, there was no compelling evidence that after-sensor effects differed between groups.
+
+**Conclusion:** EMA sensors primarily impact sibilant fricative production and perceptions of intelligibility and naturalness in PwPD and Control speakers. PwPD experience greater sensor-related reductions in intelligibility, which should be carefully considered when using speech data collected with EMA to assess perceptual measures in clinical populations. Finally, PwPD exhibited increased naturalness and greater spectral distinctiveness following sensor removal, which we speculate may stem from increased passage familiarity and reduced cognitive demand.
+:::
+
+\newpage
+
+# Introduction {#sec-introduction}
+
+Historically, our understanding of motor speech disorders, like dysarthria, has relied on perceptual and acoustic data. These methods are well-suited for measuring the phonatory, resonatory, and prosodic deficits associated with dysarthria. However, using perceptual and acoustic data to make inferences about the underlying articulatory movement is complicated by motor equivalence, which refers to the idea that multiple articulatory gestures can produce the same acoustic signal [@brunner2012; @hughes1976; @perkell1993; @perrier2015]. For this reason, kinematic analysis methods are beneficial because they allow researchers to directly examine articulatory movement.
+
+Among various kinematic methods, such as ultrasound and palatography [@hardcastle1991; @klein2013; @mcauliffe2006a; @mcauliffe2006b], electromagnetic articulography (EMA) systems are among the most commonly used kinematic methods [@berry2011; @kim2024; @savariaux2017]. By providing data on articulatory working space, displacement, speed, movement variability, and interarticulator coordination [@chu2020; @lee2017; @masapollo2023; @mefferd2015; @rong2012; @teplansky2023; @thompson2024], EMA systems offer valuable kinematic data, which complements and triangulates the relatively more extensive literature on acoustic and perceptual data. Kinematic data—when combined with perceptual and acoustic measures—can offer a more nuanced understanding of speech motor control, particularly in populations with neurological speech impairments.
+
+While EMA methods offer advantages for tracking articulatory movement, they also pose distinct challenges. EMA systems use small (e.g., 2 × 2 mm for the Wave System; NDI, Canada) strategically placed sensors on the lips, tongue, and jaw, each connected to the recording device by thin wires (e.g., 0.4 mm in diameter) [@rebernik2021]. The mere presence of these sensors introduces a continuous somatosensory perturbation (constant tactile contact of the sensors and wires against the articulators) that speakers must accommodate. Unlike transient mechanical perturbations applied to the jaw [@nasir2006; @lametti2012], EMA sensors impose a steady‐state alteration in oral input rather than a discrete displacement of articulator trajectories. Further, the novelty of the tactile sensation introduced by the sensors may draw attentional resources away from speech planning, potentially altering motor performance and making speech feel more effortful and less natural. Thus, understanding how sensor placement affects speech production is especially important in clinical populations, such as dysarthria secondary to Parkinson’s disease, who may be particularly sensitive to these somatosensory and cognitive demands.
+
+The purpose of the current study was to examine the impact of EMA sensors on people with Parkinson’s disease (PwPD). Parkinson’s disease is a progressive neurodegenerative disorder that causes hypokinetic dysarthria in approximately 90% of cases [@ho1999; @moya-galé2019]. Hypokinetic dysarthria is characterized by a reduced range of articulatory gestures [@mefferd2015; @mefferd2019; @thompson2024], as well as perceptual qualities such as vocal breathiness, monopitch, monoloudness, short rushes of speech, and imprecise articulation [@darley1969a; @darley1969b; @duffy2020]. These deficits typically cause decreased intelligibility and naturalness [@anand2015; @debodt2002; @plowman-prine2009], which can have a negative impact on communicative participation and quality of life [@borrie2022; @spencer2020]. Acoustically, PwPD often demonstrate smaller acoustic working space (e.g., smaller acoustic vowel space area (aVSA) or articulatory-acoustic vowel space \[AAVS\]) and reduced spectral contrastivity in fricatives, indicating diminished articulatory excursions and overall reduced articulatory precision [@bang2013; @lam2016; @mcrae2002; @mcrae2002; @tjaden2013; @whitfield2019]. Given these articulatory deficits in PwPD, EMA is a well-suited method for directly capturing and assessing kinematic movement in PwPD. However, it is not well understood how the presence of EMA sensors might impact speech production in PwPD.
+
+## Sensor Effects
+
+Investigations into the impact of EMA sensors on speech have predominantly been motivated by assessing the external validity of EMA findings. In other words, if EMA sensors systematically alter speech production or its perception, then caution should be exercised when generalizing results from EMA studies to study findings without kinematic data. A few studies have directly investigated the impact of kinematic sensors on speech production in neurologically healthy speakers, as summarized below.
+
+Sensor effects have primarily been examined for fricative consonant production, specifically /s/ and /ʃ/. These sibilant fricatives require precise lingual-alveolar constriction and are, therefore, likely to be impacted by the presence of lingual sensors, which are often placed .5-2 cm from the tongue tip [@rebernik2021]. Fricatives are typically studied using spectral moment analyses [@forrest1988], with spectral moments one (M1) and two (M2) representing the mean (spectral center of gravity) and standard deviation (spectral standard deviation) of spectral energy, respectively. M1 provides information about the place of articulation and has an inverse relationship to the size of the front cavity of the oral constriction. Therefore, M1 values are typically higher for /s/ compared to /ʃ/ [@jongman2000]. In contrast, the articulatory basis of M2 is less well understood, but likely distinguishes sibilant from non-sibilant consonants and/or place of articulation for fricatives [@jongman2000; @koenig2013; @petrovic2020]. Therefore, M2 may still be relevant when considering sensor effects.
+
+There is evidence suggesting that the presence of EMA sensors impact spectral moment measures for sibilant fricative production in healthy speakers. @dromey2018 examined EMA sensor effects on /s/ and /ʃ/ production and observed group-level sensor effects in neurologically healthy speakers, specifically decreased M1 values for /s/ and increased M2 values for /ʃ/. Two explanations for these findings have been proposed. One possibility is that the sensors and their attached wires, particularly when located near the primary constriction site, act as a mechanical perturbation, disrupting airflow and directly altering the resulting acoustic signal. Alternatively, speakers may adjust their articulatory patterns to compensate for sensor placement—an explanation that is not mutually exclusive with the mechanical perturbation hypothesis. Such adjustments could lead to a less forward constriction for /s/ (hence, a larger front cavity) and likely compensatory articulatory changes for /ʃ/. In contrast, @weismer1999 studied the effect of X-ray microbeam pellet placement[^1] on /s/ and /ʃ/ production in neurologically healthy speakers. They found about 20% of the speakers showed increased M1 values with pellets on compared to pellets off, indicating either a disruption of airflow or altered articulatory behavior characterized by a smaller front cavity and a more forward constriction. Although the findings of these two studies differ in terms of the direction of sensor-related effects on M1, they both suggest that sensor presence may affect articulatory behavior, acoustic signal characteristics, or both, resulting in altered spectral moment measures for sibilant fricatives.
+
+[^1]: While the University of Wisconsin (UW) X-ray microbeam (XRMB) system is not an EMA system, this type of X-ray methodology was used prior to the widespread use of EMA (Barlow et al., 1983; Fujimura et al., 1973; Westbury, 1991). However, both methods allow for the investigation of fleshpoint data during speech movement. The XRMB used eight gold pellets attached to various articulators, including four lingual pellets. The pellets were 2-3 mm in diameter and did not require sensor wires like EMA devices.
+
+To understand whether these sensor effects primarily result from airflow disruption or compensatory articulatory behavior, it may be useful to investigate phonemes involving less constriction, such as vowels, which are theoretically less susceptible to airflow disruptions from sensor placement. However, only a few studies have examined the impact of EMA sensors on vowel articulation and working space in healthy speakers, and their findings have been mixed. @weismer1999 found that some speakers had higher first formant frequency (F1) values and lower second formant frequency (F2) values during vowel production with the pellets on, suggesting a greater mouth opening (likely due to greater jaw movement) and more retracted tongue position, likely to avoid contact between the lingual pellets and the alveolar ridge. In a recent study, @tienkamp2024 found neurologically healthy speakers have reduced AAVS following EMA sensor placement, indicating a reduced articulatory working space with EMA sensors. The differences between these findings could be attributed to methodological variations, particularly the use of wired EMA sensors versus wireless X-ray microbeam pellets. Another factor to consider is that both studies used repeated stimuli (sentence repetition in @weismer1999, and repeated passage reading in @tienkamp2024), but neither accounted explicitly for possible practice effects, which could confound their results; speakers tend to speak faster on subsequent readings of the same stimuli, and faster speech is typically characterized by reduced working space [@turner1995; @weismer2000]. Nevertheless, both studies suggest that lingual sensors may lead to alterations in vowel articulation, whether through direct somatosensory perturbation or compensatory motor adjustments.
+
+Additionally, there is some evidence that EMA sensors can lead to perceptually degraded speech. @weismer1999 found no consistent impact of pellets on perceptual judgments of articulatory precision, while @dromey2018 found reduced ratings of articulatory precision with EMA sensors on compared to before EMA sensor placement. For intelligibility, @meenakshi2014 found that listeners’ forced-choice intelligibility judgments for various VCV stimuli were significantly lower with sensors compared to without sensors. Taken together, the small number of studies and the conflicting findings underscores the need for further research to determine how EMA sensors influence different perceptual outcomes. Moreover, the effects of EMA sensors on some crucial perceptual constructs, like speech naturalness, remains unexplored.
+
+Given that EMA is well-suited to characterize the articulatory deficits of clinical populations, it is crucial to understand how these populations are affected by the presence of sensors. This understanding has important implications for the validity of between-group comparisons. If sensor effects influence all speakers similarly, then researchers can assume that sensor-induced variability does not confound comparisons between speakers with and without motor speech disorders. However, if individuals with motor speech disorders are disproportionately affected by sensors, then comparisons of articulatory movements across groups could be misleading if these unique sensor effects are not appropriately accounted for.
+
+Furthermore, PwPD might be uniquely affected by the somatosensory perturbation caused by the EMA sensors. As previously stated, compensating for the presence of EMA sensors likely requires auditory and somatosensory acuity. However, PwPD have been shown to have auditory [@mollaei2016; @chen2017] and somatosensory deficits [@schneider1986; @chen2017; @hammer2010]. For instance, @chen2017 found that PwPD had reduced tactile acuity of the tongue tip, which was linked to reduced spectral contrasts between /s/ and /ʃ/. Extending this logic, it is plausible that reduced auditory or somatosensory sensitivity in PwPD may constrain both their awareness of sensor-related perturbations and the extent to which they can implement effective compensatory adjustments compared to Control speakers.
+
+To date, only @tienkamp2024 have investigated EMA sensor effects in PwPD. In their study, 46 speakers (23 control speakers and 23 PwPD) completed readings both before and after five sensors were applied: one on the jaw, two on the lips, and two on the tongue (1 cm from the tongue tip and 5 cm anterior to the /k/ constriction). Both groups showed a comparable reduction in AAVS following sensor placement, suggesting that sensors reduced working space and that PwPD were not differentially affected. However, because participants read the same passage multiple times, practice effects may have increased articulation rate and thus compressed vowel space [@turner1995; @weismer2000]. Without controlling for articulation rate, it is unclear whether the smaller AAVS reflects sensor effects or repeated-reading practice effects. Further research should control for articulation rate to isolate the specific impact of EMA sensors on vowel and fricative articulation.
+
+Furthermore, no studies have examined how speech produced with EMA sensors in PwPD is perceived by listeners. This area of investigation has important methodological implications. EMA is often used to assess therapeutic strategies in clinical populations by capturing both kinematic data and listener-based perceptual ratings in response cues like speaking louder, slower, or more clearly [@kearney2017; @thompson2024]. While relative within-speaker changes across conditions (e.g., habitual vs. clear speech) may remain interpretable, between-group comparisons may be biased by differential EMA effects. Evidence from healthy speakers shows that sensors may reduce perceptual ratings [@dromey2018; @meenakshi2014], and it is plausible that these negative perceptual effects may be larger or qualitatively different in clinical populations with altered sensorimotor control. If unaccounted for, such sensor effects could confound between-group perceptual comparisons.
+
+## After-Sensor Effects
+
+Examining speech after sensor removal (i.e., after-sensor effects) may provide additional insights beyond sensor effects alone. To our knowledge, no studies have investigated the after-effects of EMA sensor removal. However, research on other somatosensory perturbations, such as mechanical jaw loads [@nasir2006; @tremblay2003] and dental prostheses [@hamlet1976], suggests that after-effects typically manifest as compensatory responses in the opposite direction of the perturbation. For instance, studies that have applied a mechanical load to the jaw have found that speakers adapt their jaw movements to counteract the load to maintain their unperturbed acoustic output, and when the load is removed, their jaw may initially deviate in the opposite direction [@nasir2006; @tremblay2003]. Given that EMA sensors introduce a somatosensory perturbation that may alter vowel and fricative production, it is reasonable to hypothesize that there may be a period of readjustment following sensor removal as the articulators return to their natural movement patterns.
+
+Investigating after-effects in PwPD may be particularly beneficial, given their characteristic hypokinetic dysarthria. If EMA sensors restrict a speaker's range of motion, as suggested by findings of reduced acoustic distinctiveness and perceptions of precision [@tienkamp2024; @dromey2018], speakers may compensate by making larger articulatory gestures while wearing sensors to achieve their pre-sensor acoustic output. If these compensatory adjustments persist after sensor removal, they could possibly yield perceptual benefits. This would be particularly beneficial for PwPD, given that hypokinetic dysarthria is characterized by reduced amplitude of articulatory movements, vowel centralization, and decreased spectral contrastivity in fricatives [@mefferd2019; @thompson2024; @tjaden2004; @weismer2001].
+
+Research on after-effects following speech-related somatosensory perturbations in PwPD is limited. However, insights can be drawn from research on sensorimotor adaptation, which often uses auditory feedback paradigms. These studies have shown that both PwPD and control speakers exhibit some degree of maintained adaptation to F1 formant perturbations even after the perturbation is removed [@abur2018; @miller2023; @mollaei2013; @purcell2006; @villacorta2007]. However, it is important to note that after-effects are not typically the focus of these studies, and individual variability is observed. Beyond speech, after-effects have been documented in PwPD and healthy individuals following sensorimotor perturbations in various motor tasks, such as walking [@bultitude2012; @roemmich2014; @sorrento2018], pointing [@buch2003; @contreras-vidal2003], and throwing [@martin1996]. However, unlike these studies, which primarily manipulate visual or auditory feedback, EMA sensors introduce a somatosensory perturbation, warranting further investigation into their unique after-effects.
+
+## The Current Study
+
+This study is a secondary analysis of data originally collected to examine perceptual, acoustic, and kinematic speech characteristics in PwPD with hypokinetic dysarthria and neurologically healthy control speakers. Here, we investigated the impact of EMA sensors on PwPD and control speakers, focusing on both sensor presence (sensor effects) and post-sensor removal (after-sensor effects). An additional aim is to determine whether EMA sensors impact PwPD differently compared to control speakers, thereby assessing the external validity of EMA data. To explore these effects, we used spectral moment analyses (M1 and M2) to evaluate sibilant fricative production (/s/ and /ʃ/), analyzed AAVS to examine acoustic working space, and gathered perceptual ratings of intelligibility and naturalness. Our research questions are: (1) Do EMA sensors affect acoustic and perceptual measures in PwPD and control speakers (Before Sensors vs. With Sensors)? If so, do the effects differ between groups? and (2) Are there after-sensor effects in PwPD and control speakers (Before Sensors vs. After Sensors)? If so, do the effects differ between groups?
+
+Based on prior studies [@weismer1999; @dromey2018; @tienkamp2024], we hypothesize that both groups will show sensor effects, reflected by a decrease in perceptual and acoustic measures, except for M2, with sensors on compared to before sensor placement. For M2, we expect an increase with sensors, indicating a wider spread of spectral values. Because the lingual sensors sit directly at the constriction site for /s/ and /ʃ/, we predict that fricative spectral moments (M1 and M2) will be more disrupted by EMA sensor placement than AAVS in both groups. Further, given evidence of somatosensory deficits in PwPD [@schneider1986; @chen2017; @hammer2010], we hypothesize that PwPD may be less or differentially affected by the somatosensory perturbation introduced by the EMA sensors. As a result, they may demonstrate smaller and less effective compensatory changes in their motor plans in response to the EMA sensors. Similarly, we predict after-sensor effects for both groups, reflected by increases in most measures (except for M2) following sensor removal. However, we expect these compensatory carryover effects to be smaller in magnitude for PwPD, given their auditory and somatosensory deficits, as well as their underlying dysarthria.
+
+# Method {#sec-methods}
+
+The data for this study were collected as part of a larger kinematic and acoustic study in the Florida State University (FSU) Motor Speech Laboratory. The procedures outlined below were approved by the Florida State University’s Institutional Review Board (FSU IRB: 00002525). Informed consent was obtained from all participants before they participated in the study.
+
+## Speaker Data
+
+### Speakers
+
+A total of 34 speakers were included in the study, including 13 PwPD and 21 Control speakers. @tbl-speakerDemo provides a summary of the demographic information for both groups, and detailed participant-level descriptions are available in Supplemental Tables [-@supptbl-PDspeakerDemo] and [-@supptbl-controlSpeakerDemo]. While efforts were made to match the two groups in terms of age and sex, there were some discrepancies. The Control group included more female speakers (12 female, 9 male) and was younger on average (M = 64.33 years) compared to the PwPD group (4 female, 9 male; M = 71.00 years). The PwPD varied in years since diagnosis, ranging from 2 to 15 years (M = 7.11 years), and exhibited a wide range of hypokinetic dysarthria severity, from mild to profound. All PwPD were evaluated in their on-medication state, and none had undergone deep brain stimulation.
+
+#### Table 1
+
+::: {#tbl-speakerDemo}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/Tbl_speaker_demo.html")
+```
+
+Listener group demographics.
+:::
+
+### Data Collection
+
+Acoustic and kinematic data were collected simultaneously in a sound-attenuating booth using the Wave system and Wavefront [@ndi] with an AKG C1000S microphone placed approximately 30 cm from the speaker recording the speech stimuli. The acoustic data had a sampling rate of 20 kHz and 16-bit resolution. Kinematic data were not analyzed in the current study, as kinematic data were not available before sensor application and after sensor removal. Therefore, speech outcomes were limited to acoustic and perceptual measures. Five five-degrees-of-freedom (5DOF) sensors, 2 mm in diameter, were affixed to various articulators, including two lingual sensors, the tongue front (affixed medially 2 cm from the tongue tip) and tongue back (affixed medially 3 cm from the tongue front sensor), two labial sensors (affixed to the upper and lower vermilion lip border, respectively), and a jaw sensor (adhered to the labial surface of the central lower incisors). Additionally, a six-degrees-of-freedom (6DOF) reference sensor for head movements was attached to the bridge of a pair of glasses. The sensors were adhered to the articulators using PeriAcryl Oral Tissue Adhesive, a non-toxic dental surgical glue. All speakers completed each speech task with all six sensors attached. For a few participants, sensors may have become unattached during a speech task. However, in these cases, the sensors were reattached, and the recording was restarted.
+
+The speakers read “The Caterpillar” passage [@patel2013] at three different time points: (1) before sensor placement (Before Sensors), (2) at least 10 minutes after sensor placement (With Sensors), allowing participants adequate time to adapt to the sensors [@dromey2018], and (3) after sensor removal (After Sensors). At each time point, speakers were instructed to read the passage in their everyday conversational voice. “The Caterpillar” was originally selected for the larger study because it was designed with motor speech disorders in mind, featuring increasing word complexity, repeated words, and prosodically demanding sentences, making it well-suited for dysarthria assessment. For the current study, we selected this passage specifically because it poses greater linguistic and prosodic demands than simple word or sentence repetition, which we theorized would make it more sensitive to sensor effects.
+
+Following the initial recording (Before Sensors), researchers attached EMA sensors to the participants' target articulators, a process typically lasting five to ten minutes, depending on individual differences in sensor application ease. Immediately after sensor placement, participants completed a standardized 10-minute conversational practice period with the examiner. During this practice, participants were instructed to speak as naturally as possible and ignore the presence of the sensors. Previous research suggests that this 10-minute interval provides sufficient time for speakers to adapt to sensor placement, as perceptual speech clarity ratings typically stabilize after approximately 10 minutes, with minimal additional adaptation occurring beyond this point [@dromey2018]. Further support is provided by @tienkamp2024, who found that articulatory-acoustic measures after a period of sensor habituation did not differ significantly from measures taken immediately after sensor placement, suggesting limited additional adaptation beyond the initial interval.
+
+Following this adaptation period, the kinematic experiment began, involving several speech tasks. Although multiple tasks were administered between primary recordings, these were not analyzed for the current study. However, the With Sensors reading of “The Caterpillar” passage consistently occurred within the first three tasks, except in one instance where a participant’s lingual sensor became detached during the initial reading, which required sensor reapplication and a rereading of the task later in the experiment.
+
+The entire data collection session lasted approximately two hours, with the three readings of “The Caterpillar” passage consistently recorded in the same order. The average time between the Before Sensors and With Sensors recordings was 26.26 minutes (SD = 10.55), which included sensor application and the 10-minute practice period. While the exact duration between sensor application and the With Sensors recording was not precisely controlled across participants, the standardized 10-minute practice period ensured all speakers had an equal minimum opportunity to adapt. The time between the Before Sensors and After Sensors recordings was 56.37 minutes (SD = 7.34). Lastly, the average time between the last recording with sensors and the After Sensors recording was 5.21 minutes (SD = 2.22), which included a few minutes to remove sensors and allow participants to remove residual glue from their tongue and lips.
+
+#### Table 2
+
+::: {#tbl-stimuli}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+htmltools::includeHTML("Tables/Tbl_SpeechStimuli.html")
+
+```
+
+Speaker stimuli and selected segments used to calculate articulation rate.
+:::
+
+### Acoustic Measures
+
+Four acoustic measures were analyzed at each of the three time points: Before Sensors, With Sensors, and After Sensors. The target speech segments were manually segmented using the TextGrid function in Praat [@boersma2021]. Acoustic analyses were conducted in the R statistical environment [@rcoreteam2023; Version 4.3.2] using the rPraat package [@boril2016; Version 1.3.2-1], which is an interface for using Praat in R.
+
+**Articulation Rate (syl/s).** Articulation rate was calculated as the number of syllables per second measured from breath groups. Breath groups were identified in three sentences from “The Caterpillar” passage (bolded in @tbl-stimuli), chosen to capture variability in length, complexity, and prosody (i.e., declarative, exclamative, and interrogative). Breath group boundaries were identified by (1) audible breaths during the sentence or (2) silent pauses longer than 150 ms.
+
+**Articulatory-Acoustic Vowel Space (AAVS; mel^2^).** The AAVS was calculated based on the methods described in @whitfield2014 and @whitfield2019, with minor modifications to be more directly comparable to the methods of @tienkamp2024. Using Praat, we extracted the formant trajectory trace for the entire passage reading by generating Linear Predictive Coding (LPC) values for F1 and F2 at every five milliseconds of the passage reading (Burg method; window length = .025 s; time step = .005 s; max number of formants: 5; formant ceiling: 5000 Hz \[male\], 5500 Hz \[female\]). Then, voiceless segments were filtered out of the data to obtain only the periodic, voiced segments. Voicing was determined by identifying intervals with F0 data exceeding 20 ms [@whitfield2019]. Next, we applied a two-step process to filter outliers. Local outliers were removed using a median absolute deviation filter, eliminating data points exceeding 2.5 times the median absolute deviation [@tienkamp2024]. For bivariate outliers, formant data were low-pass filtered at 10 Hz, and Mahalanobis distances were computed for each F1–F2 pair. Pairs exceeding 2 SDs from the centroid were excluded [@whitfield2019].
+
+The cleaned formant data were then transformed into mel values to facilitate direct comparison with findings from @tienkamp2024. To derive the AAVS, the covariance matrix of F1 and F2 was first calculated to capture both the individual variability of each formant and their co-variation. The overall spread of the data in the F1–F2 plane was then determined by computing the determinant of this matrix, known as the generalized variance. Finally, taking the square root of the generalized variance provided a measure comparable to a bivariate standard deviation. Higher AAVS values indicate more peripheral F1 and F2 values and, consequently, a larger articulatory–acoustic working space.
+
+**Spectral Moment Coefficients (kHz).** M1 and M2 were calculated for the speaker’s production of /s/ and /ʃ/ [@forrest1988]. One token of each fricative was manually segmented from “The Caterpillar” passage (“saw” for /s/ and “sure” for /ʃ/). Fricative boundaries were identified using the waveform and wideband spectrogram view in Praat. The onsets were identified at the point when high-frequency, aperiodic energy first appeared on the spectrogram. The offsets were identified at the point of the first glottal pulse of the following vowel. Consistent with the methods of @dromey2018, Praat’s “To Spectrum…” function was used to generate a spectrum from the entire fricative segment. The default spectrogram window length of 5 ms with a Gaussian window was used, resulting in a spectral estimate weighted toward the middle 50% of the fricative duration. M1, which represents the weighted average frequency of the fricative’s spectrum, was obtained using Praat’s “Get centre of gravity…” function. M2, which measures how much the frequencies deviate from the center of gravity (M1), was calculated using the “Get standard deviation…” function. The final spectral measures were expressed in kHz.
+
+## Perceptual Data
+
+### Listeners
+
+A total of 79 listeners were recruited from undergraduate communication science and disorders courses at Florida State University to provide perceptual ratings. The full demographic information for the listeners is provided in Supplemental Table [-@supptbl-listenerDemo]. To summarize, the listeners were women between 18 and 23 years old, predominantly white, and not Hispanic or Latino. While listeners’ hearing was not formally tested, none reported a history of hearing or communication disorders.
+
+### Data Collection & Perceptual Measures
+
+To obtain perceptual ratings of intelligibility and naturalness, listeners completed an online perceptual experiment programmed using Gorilla [@anwyl-irvine2020; <http://www.gorilla.sc/>]. Listeners heard the raw, non-intensity-normalized audio samples and rated intelligibility and naturalness using a continuous 100-point horizontally oriented visual analog scale (VAS).
+
+We chose not to intensity normalize the audio files to preserve the natural speech characteristics of our speakers, particularly for PwPD and dysarthria. Hypophonia, or reduced vocal intensity, is a hallmark feature of hypokinetic dysarthria, and intensity normalization would have amplified speakers' voices, which may have artificially diminished the severity of the speakers' dysarthria. However, we controlled for recording variability by ensuring a consistent speaker-to-microphone distance and maintaining identical microphone gain settings across all recordings. We also chose not to introduce multitalker babble or background noise, as our goal was to isolate the effects of EMA sensors on perceptual judgments in unaltered speech. This approach aligns with prior studies investigating EMA sensor effects [@dromey2018; @weismer1999; @meenakshi2014]. With these methodological decisions, we aimed to ensure that listener ratings reflect the combined perceptual consequences of both the dysarthria and the EMA sensors, without artificial enhancements or external confounds.
+
+The left and right ends of the VAS corresponded to rating values of 0 and 100, respectively, which were not visible to the listener. Instead, the listeners were presented with left and right endpoints labeled as “cannot understand anything” and “understand everything” for intelligibility ratings [@tjaden2014], and “highly unnatural” and “highly natural” for naturalness ratings [@anand2015]. Listeners always completed a block of ratings for intelligibility first, then a block of ratings for naturalness.
+
+Prior to making the ratings in each block, listeners were provided with instructions about the perceptual measure and how to use the VAS. Based on the consent form detailing the study, the listeners were made aware that they may hear individuals with motor speech disorders. However, the group membership (Control or PwPD) and time point (Before Sensors, With Sensors, and After Sensors) were masked to the listeners.
+
+To minimize stimuli familiarization effects, the passage recordings were split into three sections for the listeners to rate (@tbl-stimuli). Additionally, the recording was only played once before listeners made their ratings. To minimize speaker familiarization effects, listeners rated half of the speakers (n = 17) on intelligibility and the other half on naturalness. Speakers were not repeated between the intelligibility and naturalness blocks. Finally, we made efforts to minimize familiarization effects statistically by entering trial order into our models as a control variable (see the [Statistical Analysis](#sec-stats) section). These procedures yielded 12–16 independent ratings per speaker for each measure (intelligibility and naturalness) at every time point (Before Sensors, With Sensors, and After Sensors).
+
+Additionally, four previously rated recordings were randomly selected for the listener to rate again to calculate intra-listener reliability. All passage sections were presented in a randomized order. Therefore, listeners completed a total of 21 ratings in each block: 17 passage recordings (one for each of the 17 speakers) and 4 randomly selected passage sections for intra-listener reliability. The perceptual rating task took approximately 15 to 20 minutes to complete.
+
+## Reliability
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+workingData_articRate <- base::readRDS(file = "workingData/data_articRate.RDS")
+workingData_AAVS <- base::readRDS(file = "workingData/data_AAVS.RDS")
+workingData_M1 <- base::readRDS(file = "workingData/data_M1.RDS")
+workingData_M2 <- base::readRDS(file = "workingData/data_M2.RDS")
+workingData_Int <- base::readRDS(file = "workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "workingData/data_Nat.RDS")
+
+reliability <- 
+  # articRate
+  tibble::tibble(
+    measure = "articRate",
+    unit = "syl/s",
+    inter_mae = paste0(weights::rd(workingData_articRate$interRel_mae$MAE), " ", unit),
+    inter_mae_sd =  paste0(weights::rd(workingData_articRate$interRel_mae$MAE_sd), " ", unit),
+    inter_icc = paste0(
+      workingData_articRate$interRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_articRate$interRel_icc$value)
+    ),
+    intra_mae = paste0(weights::rd(workingData_articRate$intraRel_mae$MAE), " ", unit),
+    intra_mae_sd =  paste0(weights::rd(workingData_articRate$intraRel_mae$MAE_sd), " ", unit),
+    intra_icc = paste0(
+      workingData_articRate$intraRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_articRate$intraRel_icc$value)
+    ),
+    writeUp_intra = paste0("MAE = ",intra_mae,", SDAE = ", intra_mae_sd,"; ", intra_icc),
+    writeUp_inter = paste0("MAE = ",inter_mae,", SDAE = ", inter_mae_sd,"; ", inter_icc)
+  ) %>% 
+  
+  # AAVS
+  tibble::add_row(
+    measure = "AAVS",
+    unit = "mel²",
+    inter_mae = paste0(weights::rd(workingData_AAVS$interRel_mae$MAE), " ", unit),
+    inter_mae_sd =  paste0(weights::rd(workingData_AAVS$interRel_mae$MAE_sd), " ", unit),
+    inter_icc = paste0(
+      workingData_AAVS$interRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_AAVS$interRel_icc$value)
+    ),
+    intra_mae = paste0(weights::rd(workingData_AAVS$intraRel_mae$MAE), " ", unit),
+    intra_mae_sd =  paste0(weights::rd(workingData_AAVS$intraRel_mae$MAE_sd), " ", unit),
+    intra_icc = paste0(
+      workingData_AAVS$intraRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_AAVS$intraRel_icc$value)
+    ),
+    writeUp_intra = paste0("MAE = ",intra_mae,", SDAE = ", intra_mae_sd,"; ", intra_icc),
+    writeUp_inter = paste0("MAE = ",inter_mae,", SDAE = ", inter_mae_sd,"; ", inter_icc)
+  ) %>% 
+  
+  # M1
+  tibble::add_row(
+    measure = "M1",
+    unit = "kHz",
+    inter_mae = paste0(weights::rd(workingData_M1$interRel_mae$MAE), " ", unit),
+    inter_mae_sd =  paste0(weights::rd(workingData_M1$interRel_mae$MAE_sd), " ", unit),
+    inter_icc = paste0(
+      workingData_M1$interRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_M1$interRel_icc$value)
+    ),
+    intra_mae = paste0(weights::rd(workingData_M1$intraRel_mae$MAE), " ", unit),
+    intra_mae_sd =  paste0(weights::rd(workingData_M1$intraRel_mae$MAE_sd), " ", unit),
+    intra_icc = paste0(
+      workingData_M1$intraRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_M1$intraRel_icc$value)
+    ),
+    writeUp_intra = paste0("MAE = ",intra_mae,", SDAE = ", intra_mae_sd,"; ", intra_icc),
+    writeUp_inter = paste0("MAE = ",inter_mae,", SDAE = ", inter_mae_sd,"; ", inter_icc)
+  ) %>% 
+  
+    # M2
+  tibble::add_row(
+    measure = "M2",
+    unit = "kHz",
+    inter_mae = paste0(weights::rd(workingData_M2$interRel_mae$MAE), " ", unit),
+    inter_mae_sd =  paste0(weights::rd(workingData_M2$interRel_mae$MAE_sd), " ", unit),
+    inter_icc = paste0(
+      workingData_M2$interRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_M2$interRel_icc$value)
+    ),
+    intra_mae = paste0(weights::rd(workingData_M2$intraRel_mae$MAE), " ", unit),
+    intra_mae_sd =  paste0(weights::rd(workingData_M2$intraRel_mae$MAE_sd), " ", unit),
+    intra_icc = paste0(
+      workingData_M2$intraRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_M2$intraRel_icc$value)
+    ),
+    writeUp_intra = paste0("MAE = ",intra_mae,", SDAE = ", intra_mae_sd,"; ", intra_icc),
+    writeUp_inter = paste0("MAE = ",inter_mae,", SDAE = ", inter_mae_sd,"; ", inter_icc)
+  ) %>% 
+  
+  # Intelligibility
+  tibble::add_row(
+    measure = "Int",
+    unit = "%",
+    intra_mae = paste0(weights::rd(workingData_Int$intraRel_mae$MAE), "", unit),
+    intra_mae_sd =  paste0(weights::rd(workingData_Int$intraRel_mae$MAE_sd), "", unit),
+    intra_icc = paste0(
+      workingData_Int$intraRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_Int$intraRel_icc$value)
+    ),
+    writeUp_intra = paste0("MAE = ",intra_mae,", SDAE = ", intra_mae_sd,"; ", intra_icc)
+  ) %>% 
+  
+    # Naturalness
+  tibble::add_row(
+    measure = "Nat",
+    unit = "%",
+    intra_mae = paste0(weights::rd(workingData_Nat$intraRel_mae$MAE), "", unit),
+    intra_mae_sd =  paste0(weights::rd(workingData_Nat$intraRel_mae$MAE_sd), "", unit),
+    intra_icc = paste0(
+      workingData_Nat$intraRel_icc$icc.name,
+      " = ",
+      weights::rd(workingData_Nat$intraRel_icc$value)
+    ),
+    writeUp_intra = paste0("MAE = ",intra_mae,", SDAE = ", intra_mae_sd,"; ", intra_icc)
+  )
+
+relResults <- split(reliability, f = reliability$measure)
+
+rm(reliability)
+```
+
+To ensure measurement reliability, the inter- and intra-measurer reliability was assessed for the acoustic measurements made by the researchers. For inter-measurer reliability, each examiner measured 20% of the other examiner’s data, and the two sets of measurements were evaluated by calculating the mean absolute error (MAE) and standard deviation (SDAE) and using intraclass correlation coefficients (ICC) through the *icc* function in the *irr* package [@gamer2019].
+
+Inter-measurer reliability was excellent for articulation rate (`r relResults$articRate$writeUp_inter`), AAVS (`r relResults$AAVS$writeUp_inter`), M1 (`r relResults$M1$writeUp_inter`), and M2 (`r relResults$M2$writeUp_inter`). Similarly, intra-measurer reliability was assessed by having each examiner re-measure 20% of the data at least one month after the original measurement. The first and second sets of measurements were also evaluated using ICC analyses. Intra-measurer reliability was excellent for articulation rate (`r relResults$articRate$writeUp_intra`), AAVS (`r relResults$AAVS$writeUp_intra`), M1 (`r relResults$M1$writeUp_intra`), and M2 (`r relResults$M2$writeUp_intra`).
+
+Intra-listener reliability was assessed for the perceptual ratings provided by listeners. During the perceptual experiment, four previously rated recordings were randomly presented a second time to each listener. Agreement between the initial and repeated ratings was evaluated using M~AE~, SD~AE~, and ICC. Reliability was excellent for intelligibility (`r relResults$Int$writeUp_intra`) and good for naturalness (`r relResults$Nat$writeUp_intra`).
+
+Finally, inter-listener reliability was assessed by examining the mean (M) and standard deviation (SD) of the intelligibility and naturalness ratings for each speaker and time point [@hustad2015; @thompson2024][^2]. Because not every listener rated every speaker, ICC was not appropriate. The SD of ratings ranged from 0.48 to 32.60 for intelligibility and 9.87 to 36.74 for naturalness. Lower SD values were observed for speakers at the extremes of the scales, while higher SD values were observed for speakers in the mid-range (@fig-1). These SD ranges are consistent with previous studies using VAS methods for perceptual ratings [@thompson2024].
+
+[^2]: Please note that the current study measured intelligibility using VAS, while @hustad2015 used orthographic transcriptions. However, the approach to describing reliability among perceptual ratings is consistent.
+
+#### Figure 1
+
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+#| label: fig-1
+#| fig-cap: The mean and standard deviation of ratings across speakers and time points.
+
+knitr::include_graphics(path = "Figures/Fig_Inter-Listener Reliability.png")
+
+```
+
+## Statistical Analysis {#sec-stats}
+
+To address our research questions, we utilized a Bayesian hierarchical modeling approach. This approach allowed us to account for our modest sample size, quantify uncertainty in effect estimates, and interpret EMA sensor effects and after-sensor effects using descriptive probabilities. For a comprehensive overview of Bayesian mixed-effects modeling for speech data, see @nalborczyk2019. Statistical analyses were conducted in the R statistical environment [@rcoreteam2023; Version 4.3.2] using Stan modeling language [@carpenter2017] via the *brms* package (version 2.21.0) [@bürkner2018] and the *emmeans* package [@length2023].
+
+We constructed eight Bayesian mixed-effects models, one for each acoustic and perceptual outcome measure. The outcomes for the eight models were articulation rate, AAVS, M1 and M2 for /s/ and /ʃ/, and intelligibility and naturalness ratings, respectively. For each model, the interaction between speaker group (Group: Control \[reference level\] and PwPD) and time point (Time Point: Before Sensors \[reference level\], With Sensors, and After Sensors) was included as a fixed effect. Additionally, speaker sex (Sex: male \[reference level\] and female) and speaker age (Age) were entered as covariates into the models to try to statistically control for the differences in sex and age across the two speaker groups. Articulation rate was also entered as a covariate in all models except the one predicting articulation rate, to account for possible rate-related differences across time points. Each model included Speaker ID as a random intercept to account for speaker variability. All models were specified with weakly informative priors, meaning we assumed no effect of Group, Time Point, Group × Time Point interaction, or any of the covariates on the target measures. Specifically, the models were specified with regularizing Gaussian priors for the intercept and slope coefficients (μ = 0, σ = 100), and a Cauchy distribution for the standard deviation parameter (μ = 0, σ = 100). For each outcome measure, model specifications were adapted based on the distribution characteristics of the data:
+
+**Articulation Rate.** Articulation rate approximated a normal distribution. Therefore, the model was built using a Gaussian family function. In addition to the general model specifications described above, the random effect structure for the articulation rate model also included random intercepts for each phrase for each speaker (see the bolded phrases in @tbl-stimuli) to allow intercepts to vary across the target phrases.
+
+**AAVS.** The distribution of the AAVS measure was lognormal; thus, a lognormal link function was used. In addition to the general model specification, passage duration was also included as a fixed effect covariate, as longer passage durations would indicate slower speech rates, which is known to produce enlarged working spaces [@tjaden2004].
+
+**Spectral Moment Measures (M1 & M2).** The spectral moment values for /s/ and /ʃ/ approximated a normal distribution. Therefore, the models were built using Gaussian distributions. Beyond the general model specification described above, no additional fixed or random effects were entered into the models.
+
+**Perceptual Measures.** Given that the intelligibility and naturalness distributions were bounded between 0 and 100, with a clustering of values near the lower and upper limits, we rescaled these variables to a 0 to 1 range, allowing us to model the data appropriately using a Beta distribution. Additionally, Trial Order was entered into the models to control for any potential impact that familiarization and order effects had on the perceptual ratings. Finally, random effects for the perceptual models included random intercepts for passage section (see @tbl-stimuli) per speaker, as well as random intercepts for Listener ID, to account for listener variability. The perceptual models used the same Gaussian and Cauchy priors as described above. Additionally, we employed gamma priors for the Beta distribution's shape parameters with α = 1, β = .5.
+
+Following the construction of these models, we answered our research questions by examining the pairwise comparisons between Before Sensors and With Sensors (RQ1, Sensor Effects) and Before Sensors and After Sensors (RQ2, After-Sensor Effects) for each speaker group using the *emmeans* package [@length2023]. Additionally, interaction contrasts between groups were examined to determine whether these sensor effects (With Sensors - Before Sensors × Group) or after-sensor effects (After Sensors - Before Sensors × Group) differed between Control and PwPD groups.
+
+The Markov chain Monte Carlo algorithm was used to implement the Bayesian models. Four sampling chains with 4000 iterations were run for each model, with a burn-in period of 1000 iterations. To assess the robustness of an effect, we report the 95% credible interval and probability of direction (pd, not to be confused with "Parkinson’s disease") for each parameter. For the pairwise comparisons across time points, we report the 95% Highest Probability Density (HPD) interval. The 95% credible interval indicates that we are 95% confident that the true parameter value lies within the specified range. The 95% HPD interval, on the other hand, represents the range containing 95% of the most probable values of the parameter, based on the posterior distribution. The pd value reflects the proportion of the posterior distribution that falls on the same side of zero as the median (i.e., the probability that the effect is in a consistent direction). We interpret effects as robust when the 95% intervals do not include zero and the pd exceeds 95%. In practical terms, a “robust” effect is analogous to a “statistically significant” effect with p \< .05 in frequentist statistics, though the underlying logic and interpretation differ.
+
+# Results {#sec-results}
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+workingData_articRate <- base::readRDS(file = "workingData/data_articRate.RDS")
+workingData_AAVS <- base::readRDS(file = "workingData/data_AAVS.RDS")
+workingData_M1s <- base::readRDS(file = "workingData/data_M1s.RDS")
+workingData_M1sh <- base::readRDS(file = "workingData/data_M1sh.RDS")
+workingData_M2s <- base::readRDS(file = "workingData/data_M2s.RDS")
+workingData_M2sh <- base::readRDS(file = "workingData/data_M2sh.RDS")
+workingData_Int <- base::readRDS(file = "workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "workingData/data_Nat.RDS")
+
+# APA leading zero and Rounding function
+apa_rd <- function(x, digits = 2, add = TRUE, max = NULL) {
+  # Set max if not specified
+  if (is.null(max)) {
+    max <- digits + 3
+  }
+
+  # Round and format
+  y <- round(x, digits = digits)
+  yk <- format(y, nsmall = digits, scientific = FALSE)
+  nzero <- sum(as.numeric(y) == 0)
+
+  if (add == TRUE) {
+    while (nzero > 0 && digits < max) {
+      zeros <- as.numeric(y) == 0
+      digits <- digits + 1
+      y[zeros] <- round(x[zeros], digits = digits)
+      yk[zeros] <- format(y[zeros], nsmall = digits, scientific = FALSE)
+      nzero <- sum(as.numeric(y) == 0)
+    }
+  }
+
+  # Remove leading zeros per APA style
+  z <- sub("^(-?)0\\.", "\\1.", gsub(" +", "", yk))
+  return(z)
+}
+
+emmeans_AAVS <- base::readRDS("Models/brms_AAVS.rds") %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>% 
+  as.data.frame(.) %>%
+  dplyr::select(time_point, group, emmean) %>%
+  tidyr::pivot_wider(names_from = time_point,
+                     values_from = emmean) %>%
+  mutate(RQ1_percent_change = (sensors - before) / before * 100,
+         RQ1_percent_change = paste0(weights::rd(RQ1_percent_change), "%"),
+         RQ2_percent_change = (after - before) / before * 100,
+         RQ2_percent_change = paste0(weights::rd(RQ2_percent_change), "%"))
+
+emmeans_Nat <- base::readRDS("Models/brms_Nat.rds") %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>% 
+  as.data.frame(.) %>%
+  dplyr::select(time_point, group, emmean) %>%
+  tidyr::pivot_wider(names_from = time_point,
+                     values_from = emmean) %>%
+  mutate(RQ1_percent_change = (sensors - before) / before * 100,
+         RQ1_percent_change = paste0(weights::rd(RQ1_percent_change), "%"),
+         RQ2_percent_change = (after - before) / before * 100,
+         RQ2_percent_change = paste0(weights::rd(RQ2_percent_change), "%"))
+
+emmeans_Int <- base::readRDS("Models/brms_Int.rds") %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>% 
+  as.data.frame(.) %>%
+  dplyr::select(time_point, group, emmean) %>%
+  tidyr::pivot_wider(names_from = time_point,
+                     values_from = emmean) %>%
+  mutate(RQ1_percent_change = (sensors - before) / before * 100,
+         RQ1_percent_change = paste0(weights::rd(RQ1_percent_change), "%"),
+         RQ2_percent_change = (after - before) / before * 100,
+         RQ2_percent_change = paste0(weights::rd(RQ2_percent_change), "%"))
+
+
+pd <- rbind(
+  # articRate
+  cbind(measure = workingData_articRate$pairwise$measure,
+            group = workingData_articRate$pairwise$group,
+            contrast = workingData_articRate$pairwise$contrast,
+            pd = workingData_articRate$pairwise$pd),
+  # AAVS
+  cbind(measure = workingData_AAVS$pairwise$measure,
+            group = workingData_AAVS$pairwise$group,
+            contrast = workingData_AAVS$pairwise$contrast,
+            pd = workingData_AAVS$pairwise$pd),
+  # M1s
+  cbind(measure = workingData_M1s$pairwise$measure,
+            group = workingData_M1s$pairwise$group,
+            contrast = workingData_M1s$pairwise$contrast,
+            pd = workingData_M1s$pairwise$pd),
+  # M1sh
+  cbind(measure = workingData_M1sh$pairwise$measure,
+            group = workingData_M1sh$pairwise$group,
+            contrast = workingData_M1sh$pairwise$contrast,
+            pd = workingData_M1sh$pairwise$pd),
+  # M2s
+  cbind(measure = workingData_M2s$pairwise$measure,
+            group = workingData_M2s$pairwise$group,
+            contrast = workingData_M2s$pairwise$contrast,
+            pd = workingData_M2s$pairwise$pd),
+  # M2sh
+  cbind(measure = workingData_M2sh$pairwise$measure,
+            group = workingData_M2sh$pairwise$group,
+            contrast = workingData_M2sh$pairwise$contrast,
+            pd = workingData_M2sh$pairwise$pd),
+  # Int
+  cbind(measure = workingData_Int$pairwise$measure,
+            group = workingData_Int$pairwise$group,
+            contrast = workingData_Int$pairwise$contrast,
+            pd = workingData_Int$pairwise$pd),
+  # Nat
+  cbind(measure = workingData_Nat$pairwise$measure,
+            group = workingData_Nat$pairwise$group,
+            contrast = workingData_Nat$pairwise$contrast,
+            pd = workingData_Nat$pairwise$pd)
+) %>%
+  as.data.frame() %>%
+  dplyr::mutate(pd = as.numeric(pd)*100,
+                pd = round(pd),
+                pd = paste0(pd,"%"),
+                group = case_when(
+                  group == "PwPD -\nControl" ~ "groupDiff",
+                  TRUE ~ group
+                ),
+                contrast = case_when(
+                  contrast == "sensors - before" ~ "sensorEffects",
+                  contrast == "after - before" ~ "afterSensorEffects"
+                ))
+
+# Nest by measure, group, and contrast
+pd <- pd %>%
+  split(.$measure) %>%
+  map(~ split(.x, .x$group) %>%
+        map(~ split(.x$pd, .x$contrast) %>%
+              map(~ .x[[1]])))  # extract the single pd value
+
+
+writeUp <- dplyr::bind_rows(
+  workingData_articRate[["modelSummary"]] %>%
+    dplyr::mutate(measure = "articRate"),
+  workingData_AAVS[["modelSummary"]] %>%
+    dplyr::mutate(measure = "AAVS"),
+  workingData_M1s[["modelSummary"]] %>%
+    dplyr::mutate(measure = "M1s"),
+  workingData_M1sh[["modelSummary"]] %>%
+    dplyr::mutate(measure = "M1sh"),
+  workingData_M2s[["modelSummary"]] %>%
+    dplyr::mutate(measure = "M2s"),
+  workingData_M2sh[["modelSummary"]] %>%
+    dplyr::mutate(measure = "M2sh"),
+  workingData_Int[["modelSummary"]] %>%
+    dplyr::mutate(measure = "Int"),
+  workingData_Nat[["modelSummary"]] %>%
+    dplyr::mutate(measure = "Nat"),
+)  %>%
+  dplyr::filter(effect == "fixed") %>%
+  dplyr::mutate(
+    CI = paste0("CI = [",
+                apa_rd(l_95_CI),
+                ", ",
+                apa_rd(u_95_CI, digits = 2, add = T, max = 10),
+                "]"),
+    pd = paste0(apa_rd(pd*100, digits = 0),"%"),
+    writeUp = paste0("β = ",apa_rd(estimate),", ",
+                     "pd = ", pd,", ",
+                     CI) 
+  ) %>%
+  dplyr::select(measure, term, estimate, pd, CI, writeUp)
+
+# 1. Split the data by measure
+results <- split(writeUp, f = writeUp$measure)
+
+# 2. Within each measure, split by term
+results <- lapply(results, function(measure_data) {
+  term_list <- split(measure_data, f = measure_data$term)
+  
+  # 3. For each term, extract only the writeUp column
+  lapply(term_list, function(term_data) term_data$writeUp)
+})
+
+```
+
+@tbl-summaryMeasures presents summary statistics for the acoustic and perceptual measures across all speakers and by speaker sex. The main findings from the Bayesian models – specifically, sensor effects (With Sensors – Before Sensors) and after-sensor effects (After Sensors – Before Sensors) – are presented in @tbl-pairwise and Figures [-@fig-articRate] – [-@fig-Nat]. Contrasts that were statistically robust and potentially meaningful are highlighted in bold in the table and indicated in the figure legends. Due to space constraints, full model summaries for the eight Bayesian models are provided in the Supplementary Information (see Supplemental Tables [-@supptbl-articRateAAVS] – [-@supptbl-perceptual]). All reported estimates reflect posterior distributions derived from the specified models and should be interpreted as conditional on the data and model assumptions. Data preparation, visualization, and analysis code are available on our OSF project page (<https://osf.io/n7kse/>).
+
+#### Table 3
+
+::: {#tbl-summaryMeasures}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/Tbl_Summary Statistics.html")
+
+```
+
+Summary of measures for Control speakers and PwPD across all speakers and by speaker sex.
+:::
+
+## Sensor Effects
+
+Our first research question examined the impact of sensors (i.e., With Sensors – Before Sensors) on the various acoustic and perceptual measures in PwPD and Control speakers. Additionally, we were interested in understanding if the impact of sensors was comparable between the two groups (i.e., Group × With Sensors – Before Sensors; labeled “PwPD - Control” within the table and figures). The findings are presented in the left column of @tbl-pairwise and visualized in the middle panel of Figures [-@fig-articRate]-[-@fig-Nat] for each measure.
+
+**Articulation Rate.** Control speakers demonstrated a robust increase in articulation rate when wearing sensors (pd = `{r} pd$articRate$Control$sensorEffects`), whereas PwPD speakers exhibited a smaller and less certain effect (pd = `{r} pd$articRate$PwPD$sensorEffects`; middle panel of @fig-articRate). Despite these differing patterns, the between-group difference in sensor effects was not robustly supported (pd = `{r} pd$articRate$groupDiff$sensorEffects`), suggesting no clear evidence of a difference in how PwPD and Control speakers responded to wearing sensors.
+
+**AAVS.** Control speakers had a `{r} pd$AAVS$Control$sensorEffects` probability of a reduced AAVS with sensors compared to before sensors; however, the 95% HPD interval crossed zero, indicating uncertainty and a lack of robust evidence for this effect (middle panel of @fig-AAVS). In contrast, PwPD speakers showed even weaker evidence of reduced vowel space, with only a `{r} pd$AAVS$PwPD$sensorEffects` probability. Additionally, the difference between groups in sensor effects was not robustly supported (pd = `{r} pd$AAVS$groupDiff$sensorEffects`), providing no clear evidence that PwPD and Control speakers responded differently to wearing sensors.
+
+#### Figure 2
+
+:::: {#fig-articRate}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+##| label: fig-articRate
+##| fig-cap: Main findings for articulation rate.
+
+knitr::include_graphics(path = "Figures/Fig_articRate.png")
+
+```
+
+::: {style="text-align: left"}
+*Note*. (a) Posterior predictions show the predicted articulation rate at each time point (Before Sensors, With Sensors, After Sensors) for each group, adjusted for age and sex. (b) Sensor effects: the marginal effects show the change in articulation rate from Before Sensors to With Sensors for each group, along with the difference in that change between groups. (c) After-sensor effects: the marginal effects show the change from Before Sensors to After Sensors for each group, and the group difference in that change. Estimates are from a Bayesian multilevel model. Effects were considered robust if the posterior probability of direction (pd) was greater than 95% and the 95% highest probability density (HPD) interval did not include zero.
+
+PwPD = People with Parkinson’s disease; pd = probability of direction.
+:::
+
+Predicted articulation rate and sensor-related changes in speakers with and without Parkinson’s disease (PwPD).
+::::
+
+#### Figure 3
+
+:::: {#fig-AAVS}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+##| label: fig-AAVS
+##| fig-cap: Main findings for articulatory acoustic vowel space.
+
+knitr::include_graphics(path = "Figures/Fig_AAVS.png")
+
+```
+
+::: {style="text-align: left"}
+*Note*. (a) Posterior predictions show the predicted articulatory-acoustic vowel space (AAVS) at each time point (Before Sensors, With Sensors, After Sensors) for each group, adjusted for age, sex, and articulation rate. (b) Sensor effects: the marginal effects show the change in AAVS from Before Sensors to With Sensors for each group, along with the difference in that change between groups. (c) After-sensor effects: the marginal effects show the change from Before Sensors to After Sensors for each group, and the group difference in that change. Estimates are from a Bayesian multilevel model. Effects were considered robust if the posterior probability of direction (pd) was greater than 95% and the 95% highest probability density (HPD) interval did not include zero.
+
+PwPD = People with Parkinson’s disease; pd = probability of direction.
+:::
+
+Predicted articulatory-acoustic vowel space (AAVS) and sensor-related changes in speakers with and without Parkinson’s disease (PwPD).
+::::
+
+**M1.** For /s/, both Control and PwPD speakers showed robust reductions in M1 values when wearing sensors (`{r} pd$M1s$Control$sensorEffects` and `{r} pd$M1s$PwPD$sensorEffects` probabilities, respectively; middle panel of @fig-M1). Although there was a high probability of a between-group difference in the magnitude of this reduction (pd = `{r} pd$M1s$groupDiff$sensorEffects`), the 95% HPD interval crossed zero, indicating this difference was not robustly supported. In contrast, for /ʃ/, neither Control nor PwPD speakers showed robust sensor effects (`{r} pd$M1sh$Control$sensorEffects` and `{r} pd$M1sh$PwPD$sensorEffects` probabilities, respectively). The between-group difference for /ʃ/ was similarly weak (pd = `{r} pd$M1sh$groupDiff$sensorEffects`), providing no evidence that the groups differed meaningfully in their response to wearing sensors.
+
+**M2.** For /s/, there was a `{r} pd$M2s$Control$sensorEffects` probability that Control speakers had higher M2 values when wearing sensors compared to before sensors, but this effect was not robust due to the 95% HPD interval crossing zero (middle panel of @fig-M2). In contrast, PwPD speakers demonstrated a robust increase in M2 values with sensors (`{r} pd$M2s$PwPD$sensorEffects` probability). However, there was no clear evidence that the groups differed in their response to wearing sensors. For /ʃ/, neither Control nor PwPD speakers showed robust increases in M2 with sensors (`{r} pd$M2sh$Control$sensorEffects` and `{r} pd$M2sh$PwPD$sensorEffects` probabilities, respectively), and there was no evidence of a between-group difference.
+
+**Intelligibility.** Both Control and PwPD speakers were perceived as less intelligible when wearing sensors compared to before sensors, with robust effects in each group (`{r} pd$Int$Control$sensorEffects` and `{r} pd$Int$PwPD$sensorEffects` probabilities, respectively; middle panel of @fig-Int). Notably, the negative impact of sensors on intelligibility was robustly greater for PwPD compared to Control speakers (`{r} pd$Int$groupDiff$sensorEffects` probability).
+
+**Naturalness.** Both Control and PwPD speakers were perceived as robustly less natural when wearing sensors compared to before sensors (`{r} pd$Nat$Control$sensorEffects` probability for both groups; middle panel of @fig-Nat). However, unlike intelligibility ratings, there was no clear evidence of a between-group difference in the sensor effects for naturalness (pd = `{r} pd$Nat$groupDiff$sensorEffects`).
+
+#### Table 4
+
+::: {#tbl-pairwise}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/Tbl_Pairwise Comparisons.html")
+
+```
+
+*Note*. pd = probability of direction; HPD = Highest Probability Density; LL = lower limit; UL = upper limit. Bold values indicate robust effects.
+
+Pairwise comparisons.
+:::
+
+## After-Sensor Effects
+
+Our second research question examined after‐sensor effects (i.e., After Sensors – Before Sensors) to understand the impact that wearing EMA sensors for a 45-minute recording session had on various acoustic and perceptual measures in PwPD and Control speakers. Additionally, we were interested in understanding if these effects were comparable between the two groups (i.e., Group × Before Sensors – After Sensors; labeled “PwPD - Control” within the table and figures). The findings are presented in the right column of @tbl-pairwise and visualized in the right panel of Figures [-@fig-articRate]-[-@fig-Nat] for each measure.
+
+**Articulation Rate.** Control speakers showed a robust increase in articulation rate following sensor removal compared to before sensors (`{r} pd$articRate$Control$afterSensorEffects` probability), whereas PwPD speakers exhibited a smaller, less certain increase (pd = `{r} pd$articRate$PwPD$afterSensorEffects`; HPD crossing zero; right panel of @fig-articRate). The between-group difference in after-sensor effects was not robust (pd = `{r} pd$articRate$groupDiff$afterSensorEffects`), indicating no clear evidence that PwPD and Control speakers differed meaningfully in articulation rate following sensor removal.
+
+**AAVS.** Control speakers showed no robust difference in AAVS following sensor removal compared to before sensors (right panel of @fig-AAVS). In contrast, there was a `{r} pd$AAVS$PwPD$afterSensorEffects` probability that PwPD speakers robustly increased their AAVS following sensor removal. However, the between-group difference in these after-sensor effects was not robustly supported (pd = `{r} pd$AAVS$groupDiff$afterSensorEffects`), suggesting no clear evidence that the groups differed meaningfully in their AAVS responses following sensor removal.
+
+#### Figure 4
+
+:::: {#fig-M1}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+##| label: fig-M1
+##| fig-cap: placeholder
+
+knitr::include_graphics(path = "Figures/Fig_M1.png")
+
+```
+
+::: {style="text-align: left"}
+*Note*. (a) Posterior predictions show the predicted fricative spectral center of gravity (M1) at each time point (Before Sensors, With Sensors, After Sensors) for each group, adjusted for age and sex. (b) Sensor effects: the marginal effects show the change in M1 from Before Sensors to With Sensors for each group, along with the difference in that change between groups. (c) After-sensor effects: the marginal effects show the change from Before Sensors to After Sensors for each group, and the group difference in that change. Estimates are from a Bayesian multilevel model. Effects were considered robust if the posterior probability of direction (pd) was greater than 95% and the 95% highest probability density (HPD) interval did not include zero.
+
+PwPD = People with Parkinson’s disease; pd = probability of direction.
+:::
+
+Predicted fricative spectral center of gravity (M1) and sensor-related changes in speakers with and without Parkinson’s disease (PwPD).
+::::
+
+#### Figure 5
+
+:::: {#fig-M2}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+##| label: fig-M2
+##| fig-cap: placeholder
+
+knitr::include_graphics(path = "Figures/Fig_M2.png")
+
+```
+
+::: {style="text-align: left"}
+*Note*. (a) Posterior predictions show the predicted fricative spectral standard deviation (M2) at each time point (Before Sensors, With Sensors, After Sensors) for each group, adjusted for age and sex. (b) Sensor effects: the marginal effects show the change in M2 from Before Sensors to With Sensors for each group, along with the difference in that change between groups. (c) After-sensor effects: the marginal effects show the change from Before Sensors to After Sensors for each group, and the group difference in that change. Estimates are from a Bayesian multilevel model. Effects were considered robust if the posterior probability of direction (pd) was greater than 95% and the 95% highest probability density (HPD) interval did not include zero.
+
+PwPD = People with Parkinson’s disease; pd = probability of direction.
+:::
+
+Predicted fricative spectral standard deviation (M2) and sensor-related changes in speakers with and without Parkinson’s disease (PwPD).
+::::
+
+**M1.** For /s/, neither the Control speakers nor PwPD exhibited robust after-sensor effects, and the between-group difference in after-sensor effects was also not robust (right panel of @fig-M1). Similarly, for /ʃ/, neither Control speakers nor PwPD showed robust after-sensor effects, and the between-group difference for /ʃ/ after-sensor effects was likewise not robust.
+
+**M2.** For /s/, neither the Control speakers nor PwPD showed robust after-sensor effects, and the between-group difference in after-sensor effects was similarly not robust (right panel of @fig-M2). For /ʃ/, neither Control speakers nor PwPD exhibited robust after-sensor effects, and the between-group difference in after-sensor effects was not robust.
+
+**Intelligibility.** There was a `{r} pd$Int$Control$afterSensorEffects` probability that Control speakers increased intelligibility ratings following sensor removal compared to before sensors, though this effect was uncertain and not robust (right panel of @fig-Int). Similarly, there was an `{r} pd$Int$PwPD$afterSensorEffects` probability that PwPD speakers increased intelligibility ratings following sensor removal, but this effect was also not robustly supported. Furthermore, the between-group difference was not robust (pd = `{r} pd$Int$groupDiff$afterSensorEffects`), indicating no clear evidence that PwPD and Control speakers differed meaningfully in their intelligibility after sensor removal.
+
+**Naturalness.** Control speakers showed no robust difference in naturalness following sensor removal (pd = `{r} pd$Nat$Control$afterSensorEffects`; right panel of @fig-Nat). In contrast, there was a `{r} pd$Nat$PwPD$afterSensorEffects` probability that PwPD speakers were perceived as more natural after sensors compared to before sensors, indicating a robust improvement. However, the between-group difference in these after-sensor effects was not robust (pd = `{r} pd$Nat$groupDiff$afterSensorEffects`), providing no clear evidence that PwPD and Control speakers differed meaningfully in their naturalness ratings following sensor removal.
+
+#### Figure 6
+
+:::: {#fig-Int}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+##| label: fig-Int
+##| fig-cap: placeholder
+
+knitr::include_graphics(path = "Figures/Fig_Int.png")
+
+```
+
+::: {style="text-align: left"}
+*Note*. (a) Posterior predictions show the predicted intelligibility ratings at each time point (Before Sensors, With Sensors, After Sensors) for each group, adjusted for age and sex. (b) Sensor effects: the marginal effects show the change in ratings from Before Sensors to With Sensors for each group, along with the difference in that change between groups. (c) After-sensor effects: the marginal effects show the change from Before Sensors to After Sensors for each group, and the group difference in that change. Estimates are from a Bayesian multilevel model. Effects were considered robust if the posterior probability of direction (pd) was greater than 95% and the 95% highest probability density (HPD) interval did not include zero.
+
+PwPD = People with Parkinson’s disease; pd = probability of direction.
+:::
+
+Predicted intelligibility ratings and sensor-related changes in speakers with and without Parkinson’s disease (PwPD).
+::::
+
+#### Figure 7
+
+:::: {#fig-Nat}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+##| label: fig-Nat
+##| fig-cap: placeholder
+
+knitr::include_graphics(path = "Figures/Fig_Nat.png")
+
+```
+
+::: {style="text-align: left"}
+*Note*. (a) Posterior predictions show the predicted naturalness ratings at each time point (Before Sensors, With Sensors, After Sensors) for each group, adjusted for age and sex. (b) Sensor effects: the marginal effects show the change in ratings from Before Sensors to With Sensors for each group, along with the difference in that change between groups. (c) After-sensor effects: the marginal effects show the change from Before Sensors to After Sensors for each group, and the group difference in that change. Estimates are from a Bayesian multilevel model. Effects were considered robust if the posterior probability of direction (pd) was greater than 95% and the 95% highest probability density (HPD) interval did not include zero.
+
+PwPD = People with Parkinson’s disease; pd = probability of direction.
+:::
+
+Predicted naturalness ratings and sensor-related changes in speakers with and without Parkinson’s disease (PwPD).
+::::
+
+# Discussion {#sec-discussion}
+
+This study evaluated the impact of EMA sensors on various acoustic and perceptual speech outcomes in PwPD and Control speakers, with an additional goal of determining whether sensor presence affects both groups equally. We also examined after-effects following sensor removal to identify potential carry-over effects from sensor wear. Three major findings emerged: (1) sensor effects were observed in fricative /s/ production and perceptual ratings of intelligibility and naturalness; (2) after-sensor effects were observed for acoustic working space and ratings of naturalness for PwPD; and (3) sensor and after-sensor effects were largely similar across speaker groups, with the exception of the intelligibility ratings. In the following sections, we contextualize these findings within previous research and discuss their potential implications.
+
+## Sensors Effects May Impact Sibilants, Intelligibility, and Naturalness
+
+To examine sensor effects, we explored the contrast between the Before Sensors and With Sensors time points across the various acoustic and perceptual measures. We found meaningful sensor effects for the spectral moments of /s/ and perceptual ratings of intelligibility and naturalness. For articulation rate, Control speakers robustly increased their rate with sensors on, whereas PwPD speakers showed a similar, though less certain and non-robust, effect. However, the posterior predictions in the left panel of @fig-articRate reveal that articulation rate increased with each subsequent reading of the passage, regardless of sensor status. This pattern suggests that the increase is more likely due to passage familiarization than to a sensor-induced effect, as even larger increases were observed between the Before Sensors and After Sensors time points when speakers were most familiar with the passage. Thus, it is unlikely that EMA sensors induce a rate-increasing effect.
+
+For fricatives, both PwPD and Control speakers produced lower M1 values for /s/ with sensors on compared to before sensors, consistent with @dromey2018. The magnitude of this change was similar for both speaker groups as indicated by non-robust interaction effects. These findings suggest that the presence of the sensors, particularly the tongue front sensor, obstructed the lingual-alveolar constriction required for /s/ production. Specifically, the tongue front sensor, located approximately 2 cm from the tongue tip, likely acted as a mechanical obstruction, elongating the front cavity and shifting the constriction location, resulting in an acoustic profile more similar to /ʃ/, as reflected by the lower M1 values. We also observed increased spectral moment variability while wearing sensors, particularly in PwPD, as indicated by increased M2 values for /s/; a smaller, non-robust increase was observed in Control speakers. Unlike M1 changes, the articulatory correlates of M2 are less understood. However, one possibility is that the sensor wires obstructed the air stream and increased the spectral variability. This could explain why both the present study and @dromey2018 observed sensor effects for M2, while @weismer1999, who used wireless gold pellets, did not. Taken together, these results suggest that EMA sensors, and their associated wires, meaningfully impact the acoustic signal for fricative sibilants, particularly /s/. Moreover, even after a 10-minute practice period, speakers cannot fully compensate for these disruptions during fricative production.
+
+Our analysis did not reveal robust sensor effects on AAVS, which contrasts with recent findings showing reduced AAVS when sensors are worn [@tienkamp2024]. Several factors may explain why our findings differ from @tienkamp2024. First, they had a larger sample size, particularly for PwPD, which could increase the power to detect sensor effects. Second, the studies involved different languages. Our participants spoke American English, whereas @tienkamp2024 examined Dutch speakers. Language-specific characteristics might influence AAVS in ways that complicate direct comparisons. Third, articulation rate increased across subsequent readings in our study, potentially contributing to a more centralized vowel space [@turner1995; @weismer2000]. In our study, we aimed to control for this by including articulation rate as a covariate in our AAVS model. However, although @tienkamp2024 also employed repeated readings, they did not control for articulation or speech rate, which could have confounded their findings. Further research is needed to clarify how EMA sensors influence the working space across various languages and speaking tasks.
+
+In our sample, EMA sensors negatively impacted listener perceptions of speech intelligibility and naturalness in both PwPD and Control speakers. Regarding intelligibility, our findings align with @meenakshi2014, as both studies found that EMA sensors reduce intelligibility despite differences in measurement approaches. Similarly, while @dromey2018 did not assess intelligibility or naturalness, their finding of reduced perceptual judgements of articulatory precision with sensors is consistent with our results. These findings suggest that even after a 10-minute adaptation period, EMA sensors introduce perceptual degradation. Researchers using EMA data for perceptual ratings should consider that intelligibility and naturalness may be affected. Rather than viewing this as a limitation of EMA, we emphasize it as a methodological factor that should be accounted for in study designs. To mitigate these effects, we recommend collecting speech samples for perceptual ratings before applying EMA sensors.
+
+## After-Sensor Effects May Impact Articulatory-Acoustic Vowel Space and Naturalness Ratings
+
+To examine after-sensor effects, we compared acoustic and perceptual measures between the Before Sensors and After Sensors time points. For most measures, there was no clear evidence of after-sensor effects. For articulation rate, Control speakers robustly increased their rate between the Before Sensors and After Sensors time points, whereas PwPD speakers showed a similar, though less certain and non-robust, effect. However, like the articulation rate findings for sensor effects, this rate increase is likely the result of passage familiarization rather than true after-sensor effects. Future research investigating after-effects should account for such familiarization effects, as they may influence certain speech outcome measures like articulation rate.
+
+In our data, we observed that PwPD increased their AAVS by `{r} emmeans_AAVS$RQ2_percent_change[emmeans_Nat$group == "PD"]` between the Before Sensors and After Sensors time points, even after controlling for the increases in articulation rate. The finding that PwPD increased AAVS following sensor removal, while Control speakers did not, is difficult to account for within the current study design. One potential explanation, though speculative, relates to cognitive resources. PwPD are known to experience cognitive deficits even at early stages of the disease, and these cognitive deficits are associated with impaired motor performance [@monastero2018]. Therefore, it is likely that with each subsequent reading of the passage, the speakers became increasingly familiar with the speech task, thus reducing its cognitive demand. In addition to passage familiarity, the continuous somatosensory perturbation introduced by the sensors likely drew attentional resources away from speech planning, thus adding a layer of cognitive complexity. For PwPD, these demands may have been especially burdensome. By the After Sensors time point, speakers were most familiar with the task and, in the case of PwPD, were no longer contending with the added cognitive load of sensor interference. This combination may have enabled a more efficient motor performance, resulting in an increased acoustic working space for PwPD relative to their Before Sensors reading of the passage. Future research is needed to further explore the interaction between cognitive load and sensor effects in PwPD.
+
+Additionally, PwPD were rated as `{r} emmeans_Nat$RQ2_percent_change[emmeans_Nat$group == "PD"]` more natural at the After Sensors time point compared to Before Sensors. This perceptual improvement may be a consequence of the increased AAVS, aligning with @whitfield2014, who found that increased vowel space was associated with perceptual gains in PwPD (i.e., speech clarity improvements). However, after-sensor effects were not observed for intelligibility ratings, suggesting that while the articulatory adjustments led to increased naturalness, they did not meaningfully enhance intelligibility. One possible explanation is that, with repeated readings, PwPD became more familiar with the passage and began producing more natural suprasegmental features—such as improved prosody, pitch variation, or vocal intensity—that were not captured by the acoustic measures in this study [@klopfenstein2015]. Naturalness ratings may have been more sensitive to these global prosodic changes than intelligibility ratings. In contrast, Control speakers, who did not show the same improvement in naturalness from Before Sensors to After Sensors, likely had intact prosody at baseline and thus had less room for perceptual gains through practice.
+
+It remains unclear how long these articulatory and perceptual benefits of after-sensor effects may last. In our study, the after-sensor recording was conducted immediately after sensor removal, which took an average of 5.21 minutes. Research on motor adaptation suggests that while return to baseline performance (i.e., de-adaptation) is gradual, it generally occurs more quickly than the initial adaptation process [@bastian2008; @davidson2004]. However, research in sensorimotor adaptation in response to altered auditory feedback suggests that the rate of de-adaptation can vary, and may not be faster than the rate of adaptation [@mitsuya2011; @kitchen2022]. @dromey2018 found that after a 10-minute adaptation period to EMA sensors, no further perceptual or acoustic improvements were observed. Based on this, it is reasonable to hypothesize that after-sensor effects may not persist beyond 10 minutes. However, future research should systematically investigate the duration of after-sensor effects using methods similar to those employed in @dromey2018 to assess sensor effects.
+
+## Effects Were Similar Across Speaker Groups, Except for Intelligibility
+
+Our study aimed to determine whether sensor effects and after-sensor effects differentially impacted PwPD and Control speakers. To investigate potential group differences, we examined interactions between speaker group and the contrasts of interest (RQ1: With Sensors - Before Sensors × Group; RQ2: After Sensors - Before Sensors × Group; labeled “PwPD - Control” within the table and figures). Among all the measures analyzed, the only robust group difference emerged in the sensor effects on intelligibility.
+
+Although both groups experienced reduced intelligibility while wearing sensors, the magnitude of this effect was robustly greater for PwPD. Control speakers showed only an estimated `{r} gsub(emmeans_Int$RQ1_percent_change[emmeans_Int$group == "Control"],pattern = "-", replacement ="")` decrease in intelligibility ratings with sensors, whereas PwPD showed an estimated `{r} gsub(emmeans_Int$RQ1_percent_change[emmeans_Int$group == "PD"],pattern = "-", replacement ="")` decrease. This suggests that PwPD are more susceptible to sensor effects when it comes to intelligibility. Interestingly, PwPD and Control speakers did not differ in how sensors impacted articulatory working space (AAVS) or fricative production (M1 & M2), which contradicts our initial hypothesis that PwPD would be less, or differentially affected by EMA sensors. This indicates that, although sensors affect articulation similarly across groups, the perceptual consequences are more pronounced for PwPD. One possible explanation is that the interaction between sensor effects and dysarthria has a compounding impact on intelligibility, amplifying the perceptual deficits already present in PwPD.
+
+The finding that sensor effects for intelligibility ratings were more pronounced for PwPD compared to Control speakers has important methodological implications. Specifically, studies using acoustic data recorded with EMA sensors to obtain perceptual measures should anticipate some degree of perceptual degradation caused by the sensors, particularly for PwPD with hypokinetic dysarthria, who appear to be more affected than neurologically healthy speakers. Researchers should interpret such measurements with caution. Alternatively, to ensure that perceptual judgments reflect dysarthria rather than a combination of dysarthria and sensor effects, researchers could collect speech samples for perceptual analysis prior to sensor placement.
+
+Finally, the current study was designed to examine sensor- and after-sensor effects at a group level. However, individual speaker variability within both groups suggests that some individuals may be more sensitive to sensor presence (see individual trend lines in Supplemental Figure [-@suppfig-rawData]). One possibility is that speakers vary in their auditory and/or somatosensory acuity, which may influence how strongly they are perturbed by the sensors and how successfully they adapt to them. Since EMA sensors function as somatosensory perturbations that can also alter the acoustic speech signal, future research should aim to disentangle the relative contributions of auditory and somatosensory feedback in driving compensatory speech behaviors.
+
+## Limitations and Future Directions
+
+There are a few limitations to note in this study. First, the sample size was modest, and the two groups were not perfectly matched for age and sex. Although statistical controls were applied to account for these differences, future research should aim for more balanced group designs to minimize potential confounding effects. In addition, because the study focused primarily on older adults, reflecting the clinical population of interest, the observed sensor effects may not generalize to younger speakers. Future work should examine how age influences responses to sensors.
+
+Second, this study utilizes data collected as part of a broader investigation into perceptual, acoustic, and kinematic characteristics in PwPD and control speakers. As such, the design lacked the level of experimental control typically dedicated to perturbation studies. For instance, we did not collect multiple baseline, adaptation, or wash-out trials, which are commonly used to confirm effects and track behavioral changes over time. This limits our ability to precisely characterize the time course of adaptation and recovery. Additionally, PwPD were tested in their medication-on state to align with the applied and ecologically valid focus of the larger study on dysarthria as it presents in everyday communication. However, different findings may have emerged had we tested speakers in the medication-off state, as is sometimes done in perturbation studies [@hammer2010; @mollaei2016; but see @chen2017].
+
+Third, the nature of EMA sensor perturbations introduces inherent variability that differs from other perturbation paradigms, such as auditory or mechanical jaw perturbations. EMA sensor application and removal are time-consuming and can vary between participants, making it difficult to standardize adaptation and post-adaptation periods. For example, because the sensor application process differed across participants, the amount of time each speaker wore the sensors at the With Sensors time point varied, although all received a minimum of 10 minutes to adapt. Similarly, between the final recording with sensors and the After Sensors recording, participants underwent the sensor removal process, which involved variable durations (M = 5.21 minutes; SD = 2.22) and differing levels of verbal interaction with research staff. As a result, the After Sensors recording may reflect different stages of de-adaptation across participants. Therefore, observed after-sensor effects should be interpreted with caution.
+
+Finally, a key motivation for this study was to explore how somatosensory deficits in PwPD might influence their ability to compensate for the perturbations introduced by EMA sensors. However, we did not collect direct measures of somatosensory function. Assessing somatosensory abilities could provide a clearer understanding of individual differences in adaptation to EMA sensors. It is reasonable to hypothesize that PwPD with more severe somatosensory deficits may be less capable of adapting to and compensating for EMA sensors.
+
+# Conclusion
+
+The purpose of this study was to examine the impact of EMA sensors on speech production and perception in PwPD and Control speakers, with a focus on sensor effects and after-sensor effects. Our findings indicate that EMA sensors primarily affected sibilant fricative production and perceptual ratings of intelligibility and naturalness in both groups. However, PwPD experienced a greater decline in intelligibility ratings when wearing sensors compared to Control speakers. Notably, at least five minutes after sensor removal, PwPD demonstrated enlarged AAVSs and were perceived to be more natural compared to before sensor application. We speculate that these after-sensor effects may reflect reduced cognitive load as PwPD became more familiar with the task, though this interpretation requires further empirical testing. Overall, these findings highlight important methodological considerations for interpreting EMA data collected from both PwPD and Control speakers.
+
+\newpage
+
+# Acknowledgments
+
+This study was supported by two NIDCD grants: an F31 awarded to A. Thompson (NIH DC020121) and an R01 awarded to Y-J. Kim (NIH DC020468). The Korea Health Industry Development Institute (KHIDI) grant awarded to Y-J. Kim also partly supported the study (HI22 C0736). We would also like to thank Mia Carter, a master’s student and research assistant in the Motor Speech Disorders Lab at FSU, for her assistance with acoustic segmentation for this project.
+
+# Data Availability Statement
+
+Deidentified datasets, data preprocessing scripts, data analysis scripts, and other supplementary materials relevant to this study are available on this study’s project page on the Open Science Framework (OSF) platform (<https://osf.io/n7kse/>).
+
+# References
+
+::: {#refs}
+:::
+
+# Supplemental Information
+
+## Group, Sex, Age, and Order Effects
+
+Although group, sex, age, and trial order effects within the Before Sensors time point were not the primary focus of this study, their inclusion in our models as interaction terms (Group × Time Point) or covariates (sex, age, trial order) allowed us to examine these variables.
+
+**Group Effects.** PwPD demonstrated robustly smaller AAVSs (`{r} results$AAVS$groupPD`) compared to control speakers at the baseline Before Sensors condition, after adjusting for age, sex, and articulation rate. Conversely, PwPD and control speakers showed comparable articulation rates (`{r} results$articRate$groupPD`), M1 (/s/: `{r} results$M1s$groupPD`; /ʃ/: `{r} results$M1sh$groupPD`) and M2 values (/s/: `{r} results$M2s$groupPD`; /ʃ/: `{r} results$M2sh$groupPD`), intelligibility ratings (`{r} results$Int$groupPD`) and naturalness ratings (`{r} results$Nat$groupPD`) at the baseline Before Sensors condition.
+
+**Sex Effects.** Female speakers demonstrated robustly larger AAVSs (`{r} results$AAVS$sexFemale`) and higher M1 and M2 values for /s/ (M1: `{r} results$M1s$sexFemale`; M2: `{r} results$M2s$sexFemale`) compared to male speakers, after adjusting for age, group, and articulation rate. Male and female speakers did not robustly differ in their articulation rates (`{r} results$articRate$sexFemale`), M1 or M2 values for /ʃ/ (M1: `{r} results$M1sh$sexFemale`; M2: `{r} results$M2sh$sexFemale`), intelligibility ratings (`{r} results$Int$sexFemale`), or naturalness ratings (`{r} results$Nat$sexFemale`).
+
+**Age Effects.** Older speakers were perceived to be less intelligible (`{r} results$Int$age`) and natural (`{r} results$Nat$age`), and demonstrated reduced M1 values for /s/ (`{r} results$M1s$age`) in the Before Sensors time point, after adjusting for group, sex, and articulation rate. In contrast, age did not robustly impact articulation rate (`{r} results$articRate$age`), AAVS (`{r} results$AAVS$age`), M1 for /ʃ/ (`{r} results$M1sh$age`), or M2 measures (/s/: `{r} results$M2s$age`; /ʃ/: `{r} results$M2sh$age`).
+
+**Trial Order Effects.** For the perceptual measures, trial order had no robust impact on listeners’ intelligibility ratings (`{r} results$Int$trial_number`). However, listeners systematically rated samples as less natural the later they were presented in the perceptual experiment (`{r} results$Nat$trial_number`). This tendency was consistent across both groups, regardless of the speaker’s sex or age.
+
+## Figures
+
+### Figure S1
+
+:::: {#suppfig-rawData}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+##| label: fig-articRate
+##| fig-cap: Main findings for articulation rate.
+
+knitr::include_graphics(path = "Figures/SupFig_rawData.png")
+
+```
+
+::: {style="text-align: left"}
+*Note*. The raw data for each participant across all three time points (left panel), between Before Sensors and With Sensors (middle panel), and between Before Sensors and After Sensors (right panel).
+:::
+
+Individual raw data across the target measures.
+::::
+
+\newpage
+
+## Tables
+
+### Table S1
+
+::: {#supptbl-PDspeakerDemo}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_Speakers with PD Demographics.html")
+```
+
+Speaker demographics for the speakers with Parkinson's disease.
+:::
+
+\newpage
+
+### Table S2
+
+::: {#supptbl-controlSpeakerDemo}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_Speakers without PD Demographics.html")
+```
+
+Speakers demographics for the control speakers.
+:::
+
+\newpage
+
+### Table S3
+
+::: {#supptbl-listenerDemo}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_listener_demo.html")
+
+```
+
+Listener demographics.
+:::
+
+\newpage
+
+### Table S4
+
+::: {#supptbl-articRateAAVS}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_articRateAAVS.html")
+
+```
+
+*Note.* PwPD = People with Parkinson’s disease
+:::
+
+\newpage
+
+### Table S5
+
+::: {#supptbl-M1}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_M1.html")
+
+```
+
+*Note.* PwPD = People with Parkinson’s disease
+:::
+
+\newpage
+
+### Table S6
+
+::: {#supptbl-M2}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_M2.html")
+
+```
+
+*Note.* PwPD = People with Parkinson’s disease
+:::
+
+\newpage
+
+### Table S7
+
+::: {#supptbl-perceptual}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_IntNat.html")
+```
+
+*Note.* PwPD = People with Parkinson’s disease
+:::

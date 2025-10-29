@@ -1,0 +1,1616 @@
+---
+title: "Vowel Artic in PD: Plots"
+output: html_notebook
+---
+
+# Packages
+```{r}
+library(tidyverse)
+library(ggrepel)
+library(extraDistr)   # install.packages("extraDistr")
+library(HDInterval)   # install.packages("HDAPerval")
+library(tidybayes)    # install.packages("tidybayes")
+library(bayesplot)    # install.packages("bayesplot")
+library(modelr)
+library(broom.mixed)  # install.packages("broom.mixed")
+library(brms)         # install.packages("brms")
+library(ggthemes)
+library(patchwork)
+library(ggokabeito)   # install.packages("ggokabeito")
+theme_set(theme_minimal())
+
+# Creating a theme function used for visualizations
+theme_clean <- function() {
+  theme_minimal(base_family = "Arial") +
+    theme(panel.grid.minor = element_blank(),
+          plot.title = element_text(face = "bold"),
+          axis.title = element_text(face = "bold"),
+          strip.text = element_text(face = "bold", size = rel(1), hjust = 0),
+          strip.background = element_rect(fill = "grey80", color = NA),
+          legend.title = element_text(face = "bold"))
+}
+```
+
+# Loading the models
+```{r}
+model_Int <- base::readRDS(file = "Models/brms_Int.rds")
+model_Nat <- base::readRDS(file = "Models/brms_Nat.rds")
+model_articRate <- base::readRDS(file = "Models/brms_articRate.rds")
+model_AAVS <- base::readRDS(file = "Models/brms_AAVS.rds")
+model_M1s <- base::readRDS(file = "Models/brms_M1s.rds")
+model_M1sh <- base::readRDS(file = "Models/brms_M1sh.rds")
+model_M2s <- base::readRDS(file = "Models/brms_M2s.rds")
+model_M2sh <- base::readRDS(file = "Models/brms_M2sh.rds")
+```
+
+# Formatting info
+```{r}
+textSize_plotTitle <- 9
+textSize_plotSubtitle <- 9
+textSize_axisTitle <- 9
+```
+
+# 01. Reliability
+```{r}
+workingData_Int <- base::readRDS(file = "workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "workingData/data_Nat.RDS")
+
+interRel_plotData <- rbind(
+  workingData_Int$data %>%
+    dplyr::select(c(
+      gorilla_id,
+      speaker_id,
+      `Time Point` = time_point,
+      Group = group,
+      Sex = sex,
+      age,
+      rating
+    )
+    ) %>%
+    dplyr::mutate(
+      Measure = "Intelligibility"
+    ),
+  workingData_Nat$data %>%
+    dplyr::select(c(
+      gorilla_id,
+      speaker_id,
+      `Time Point` = time_point,
+      Group = group,
+      Sex = sex,
+      age,
+      rating
+    )
+    ) %>%
+    dplyr::mutate(
+      Measure = "Naturalness"
+    )
+) %>%
+  dplyr::filter(gorilla_id != "10237851") %>%
+  dplyr::group_by(speaker_id, `Time Point`, Group, Sex, age, Measure) %>%
+  dplyr::summarise(M = mean(rating),
+                   sd = sd(rating)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(`Time Point` = factor(`Time Point`,
+                                      levels = c("before",
+                                                 "sensors",
+                                                 "after"),
+                                      labels = c("Before Sensors",
+                                                 "With Sensors",
+                                                 "After Sensors")),
+                Measure = factor(Measure,
+                                 levels = c("Intelligibility",
+                                            "Naturalness"),
+                                 labels = c("Intelligibility Ratings",
+                                            "Naturalness Ratings")),
+                Group = factor(Group,
+                               levels = c("Control",
+                                          "PD"),
+                               labels = c("Control",
+                                          "PwPD")))
+
+interRel_plot <- interRel_plotData %>%
+  ggplot() +
+  aes(
+    x = M,
+    y = sd,
+    color = Group,
+    shape = `Time Point`
+  ) +
+  geom_point() +
+  facet_wrap(~Measure) +
+  labs(x = "Average Rating (Mean)",
+       y = "Rating Variability (sd)",
+       title = "Inter-listener Reliability",
+       #subtitle = "The mean and standard deviation of ratings across speakers and time points."
+       ) +
+  ggokabeito::scale_color_okabe_ito(order = c(2,
+                                             #5,
+                                             #4,
+                                             1)) +
+  ggthemes::theme_clean() &
+  theme(
+    strip.text.x = element_text(hjust = 0, size = 12),
+    strip.text.y = element_text(angle = 0),
+    plot.background = element_blank(),
+    #panel.margin=unit(.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        strip.background = element_rect(color = "black", size = 1),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1), 
+    legend.position = "bottom",
+    legend.box="vertical",
+    legend.background = element_rect(color = NA),
+    aspect.ratio = 1)
+
+interRel_plot
+
+ggsave(plot = interRel_plot,
+       file = "Figures/Fig_Inter-Listener Reliability.png",
+       height = 5,
+       width = 6.5,
+       units = "in",
+       scale = 1,
+       bg = "white")
+```
+
+# 02. Artic Rate
+## Expected Posteriors
+```{r}
+# Generate expected predictions from the posterior
+data_posterior_articRate <- model_articRate %>%
+  tidybayes::epred_draws(
+    newdata = tidyr::expand_grid(
+      group = c("Control", "PD"),
+      time_point = c("before", "sensors", "after"),
+      sex = c("Male", "Female"),
+      age = 66.88,
+    ),
+    re_formula = NA
+  ) %>%
+  group_by(.draw, group, time_point) %>%
+  summarize(.epred = mean(.epred), .groups = "drop") %>%
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = c("Control", "PD"),
+      labels = c("Control", "PwPD")
+    ),
+    #grouping = paste(sex, group, sep = " - "),
+    #grouping = factor(grouping,
+    #                  levels = c("Male - Control",
+    #                             "Male - PwPD",
+    #                             "Female - Control",
+    #                             "Female - PwPD")),
+    time_point = factor(
+      time_point,
+      levels = c("before", "sensors", "after"),
+      labels = c("Before\nSensors", "With\nSensors", "After\nSensors")
+    )
+  )
+
+plot_grandMean_articRate <- ggplot(data_posterior_articRate, 
+                                   aes(x = .epred, y = time_point, fill = group)) +
+  stat_halfeye(alpha = .9) +
+  ggokabeito::scale_fill_okabe_ito(order = c(2, 1)) +
+  labs(x = "Predicted articulation rate (syl/s)", y = NULL,
+       fill = "Group",
+       title = "(a) Posterior Predictions",
+       subtitle = "Predicted articulation rate after\ncontrolling for speaker age and sex.") +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  #facet_grid(sex~.) +
+  theme(legend.position = "bottom",
+        axis.title = element_text(size = textSize_axisTitle),
+        plot.title = element_text(size = textSize_plotTitle),
+        plot.subtitle = element_text(size = textSize_plotSubtitle),
+        #panel.border = element_rect(color = "grey", fill = NA)
+        ) +
+  guides(fill = guide_legend(nrow = 1))
+```
+
+## ME: Timepoint x Group
+```{r}
+robust_articRate <- rio::import("workingData/data_articRate.RDS")$pairwise %>%
+  dplyr::select(contrast, group, robust)
+
+data_meContrasts_articRate <- model_articRate %>%
+  emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+  emmeans::contrast(method = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::filter(contrast != "after - sensors")
+
+# Compute the interaction contrast (difference in contrasts between groups)
+interaction_contrast <- model_articRate %>%
+  emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA) %>%
+  emmeans::contrast(interaction = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+data_meContrasts_articRate <- base::rbind(data_meContrasts_articRate, interaction_contrast) %>%
+  dplyr::mutate(group = case_when(
+    group == "PD" ~ "PwPD",
+    group == "Control" ~ "Control",
+    group == "PD - Control" ~ "PwPD -\nControl"
+  )) %>%
+  base::merge(., robust_articRate)
+
+plot_RQ1_articRate <- ggplot(
+  data_meContrasts_articRate %>%
+    dplyr::filter(contrast == "sensors - before"),
+    aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of sensors effects (syl/s)",
+    y = NULL,
+    title = "(b) Research Question 1",
+    subtitle = "Sensor effect (With Sensors - Before Sensors)\nper group and the effect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ1_articRate
+
+plot_RQ2_articRate <- ggplot(
+  data_meContrasts_articRate %>%
+    dplyr::filter(contrast == "after - before"),
+    aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of after-sensor\neffects (syl/s)",
+    y = NULL,
+    title = "(c) Research Question 2",
+    subtitle = "After-sensor effect (After Sensors -\nBefore Sensors) per group and the\neffect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ2_articRate
+
+# Combined plot
+plot_articRate <-  plot_grandMean_articRate + plot_RQ1_articRate + plot_RQ2_articRate +
+  patchwork::plot_layout(ncol = 3, heights = c(1), guides = "collect"
+                         ) +
+  plot_annotation(title = "Articulation Rate", #subtitle = "Predicted intelligibility ratings across group/severity and speaking conditions.",
+                  theme = theme_clean()) &
+  theme(legend.position = "bottom")
+plot_articRate
+
+ggsave(
+  plot = plot_articRate,
+  filename = "Figures/Fig_articRate.png",
+  height = 6,
+  width = 10,
+  unit = "in",
+  scale = .9,
+  bg = "white"
+)
+
+```
+
+# 03. AAVS
+## Expected Posteriors
+```{r}
+# Generate expected predictions from the posterior
+data_posterior_AAVS <- model_AAVS %>%
+  tidybayes::epred_draws(
+    newdata = tidyr::expand_grid(
+      group = c("Control", "PD"),
+      time_point = c("before", "sensors", "after"),
+      sex = c("Male", "Female"),
+      age = mean(model_AAVS$data$age),
+      artic_rate = mean(model_AAVS$data$artic_rate),
+    ),
+    re_formula = NA
+  ) %>%
+  group_by(.draw, group, time_point) %>%
+  summarize(.epred = mean(.epred), .groups = "drop") %>%
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = c("Control", "PD"),
+      labels = c("Control", "PwPD")
+    ),
+    #grouping = paste(sex, group, sep = " - "),
+    #grouping = factor(grouping,
+    #                  levels = c("Male - Control",
+    #                             "Male - PwPD",
+    #                             "Female - Control",
+    #                             "Female - PwPD")),
+    time_point = factor(
+      time_point,
+      levels = c("before", "sensors", "after"),
+      labels = c("Before\nSensors", "With\nSensors", "After\nSensors")
+    )
+  )
+
+plot_grandMean_AAVS <- ggplot(data_posterior_AAVS, aes(x = .epred, y = time_point, fill = group)) +
+  stat_halfeye(alpha = .9) +
+  ggokabeito::scale_fill_okabe_ito(order = c(2, 1)) +
+  labs(x = "Predicted AAVS (mel²)", y = NULL,
+       fill = "Group",
+       title = "(a) Posterior Predictions",
+       subtitle = "Predicted AAVS after controlling for\nspeaker age, sex, and articulation rate.") +
+  scale_y_discrete(limits = rev) +
+  #coord_cartesian(xlim = c(.65,1)) +
+  theme_clean() +
+  #facet_grid(sex~.) +
+  theme(legend.position = "bottom",
+        axis.title = element_text(size = textSize_axisTitle),
+        plot.title = element_text(size = textSize_plotTitle),
+        plot.subtitle = element_text(size = textSize_plotSubtitle),
+        #panel.border = element_rect(color = "grey", fill = NA)
+        ) +
+  guides(fill = guide_legend(nrow = 1))
+plot_grandMean_AAVS
+```
+
+## ME: Timepoint x Group
+```{r}
+robust_AAVS <- rio::import("workingData/data_AAVS.RDS")$pairwise %>%
+  dplyr::select(contrast, group, robust)
+
+data_meContrasts_AAVS <- model_AAVS %>%
+  emmeans::emmeans(~ time_point | group,
+                   epred = TRUE,
+                   re_formula = NA,) %>%
+  emmeans::contrast(method = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::filter(contrast != "after - sensors")  %>%
+  dplyr::mutate(group = case_when(
+      group == "PD" ~ "PwPD",
+      group == "Control" ~ "Control"
+    ))
+
+# Compute the interaction contrast (difference in contrasts between groups)
+interaction_contrast <- model_AAVS %>%
+  emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+  emmeans::contrast(interaction = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::rename(contrast = time_point_revpairwise,
+                group = group_revpairwise) %>%
+  dplyr::filter(contrast != "after - sensors")  %>%
+  dplyr::mutate(group = case_when(
+      group == "PD - Control" ~ "PwPD -\nControl"
+    ))
+
+data_meContrasts_AAVS <- base::rbind(data_meContrasts_AAVS, interaction_contrast) %>%
+  base::merge(., robust_AAVS) %>%
+  dplyr::mutate(
+    robust = factor(robust, levels = c("not robust", "robust")))
+
+#bayestestR::p_direction(data_meContrasts_AAVS)
+
+plot_RQ1_AAVS <- ggplot(
+  data_meContrasts_AAVS %>%
+    dplyr::filter(contrast == "sensors - before"),
+  aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of sensors effects (mel²)",
+    y = NULL,
+    title = "(b) Research Question 1",
+    subtitle = "Sensor effect (With Sensors - Before Sensors)\nper group and the effect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ1_AAVS
+
+plot_RQ2_AAVS <- ggplot(
+  data_meContrasts_AAVS %>%
+    dplyr::filter(contrast == "after - before"),
+    aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of after-sensor\neffects (mel²)",
+    y = NULL,
+    title = "(c) Research Question 2",
+    subtitle = "After-sensor effect (After Sensors -\nBefore Sensors) per group and the\neffect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ2_AAVS
+
+# Combined plot
+plot_AAVS <-  plot_grandMean_AAVS + plot_RQ1_AAVS + plot_RQ2_AAVS +
+  patchwork::plot_layout(ncol = 3, heights = c(1), guides = "collect") +
+  plot_annotation(title = "Articulatory Acoustic Vowel Space", #subtitle = "Predicted intelligibility ratings across group/severity and speaking conditions.",
+                  theme = theme_clean()) &
+  theme(legend.position = "bottom")
+plot_AAVS
+
+ggsave(
+  plot = plot_AAVS,
+  filename = "Figures/Fig_AAVS.png",
+  height = 6,
+  width = 10,
+  unit = "in",
+  scale = .9,
+  bg = "white"
+)
+
+```
+# 04. M1
+## /s/ - Expected Posteriors
+```{r}
+# Generate expected predictions from the posterior
+data_posterior_M1s <- model_M1s %>%
+  tidybayes::epred_draws(
+    newdata = tidyr::expand_grid(
+      group = c("Control", "PD"),
+      time_point = c("before", "sensors", "after"),
+      sex = c("Male", "Female"),
+      age = mean(model_M1s$data$age),
+      artic_rate = mean(model_M1s$data$artic_rate),
+    ),
+    re_formula = NA
+  ) %>%
+  group_by(.draw, group, time_point) %>%
+  summarize(.epred = mean(.epred), .groups = "drop") %>%
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = c("Control", "PD"),
+      labels = c("Control", "PwPD")
+    ),
+    #grouping = paste(sex, group, sep = " - "),
+    #grouping = factor(grouping,
+    #                  levels = c("Male - Control",
+    #                             "Male - PwPD",
+    #                             "Female - Control",
+    #                             "Female - PwPD")),
+    time_point = factor(
+      time_point,
+      levels = c("before", "sensors", "after"),
+      labels = c("Before\nSensors", "With\nSensors", "After\nSensors")
+    )
+  )
+
+```
+
+## /s/ - ME: Timepoint x Group
+```{r}
+robust_M1s <- rio::import("workingData/data_M1s.RDS")$pairwise %>%
+  dplyr::select(contrast, group, robust)
+
+data_meContrasts_M1s <- model_M1s %>%
+  emmeans::emmeans(~ time_point | group,
+                   epred = TRUE,
+                   re_formula = NA,) %>%
+  emmeans::contrast(method = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::filter(contrast != "after - sensors")
+
+# Compute the interaction contrast (difference in contrasts between groups)
+interaction_contrast <- model_M1s %>%
+  emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+  emmeans::contrast(interaction = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::rename(contrast = time_point_revpairwise,
+                group = group_revpairwise) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+data_meContrasts_M1s <- base::rbind(data_meContrasts_M1s, interaction_contrast) %>%
+  dplyr::mutate(group = case_when(
+    group == "PD" ~ "PwPD",
+    group == "Control" ~ "Control",
+    group == "PD - Control" ~ "PwPD -\nControl"
+  )) %>%
+  base::merge(., robust_M1s) %>%
+  dplyr::mutate(robust = factor(robust,
+                                levels = c("not robust",
+                                           "robust")))
+
+#bayestestR::p_direction(data_meContrasts_M1s)
+
+```
+
+## /sh/ - Expected Posteriors
+```{r}
+# Generate expected predictions from the posterior
+data_posterior_M1sh <- model_M1sh %>%
+  tidybayes::epred_draws(
+    newdata = tidyr::expand_grid(
+      group = c("Control", "PD"),
+      time_point = c("before", "sensors", "after"),
+      sex = c("Male", "Female"),
+      age = mean(model_M1sh$data$age),
+      artic_rate = mean(model_M1sh$data$artic_rate),
+    ),
+    re_formula = NA
+  ) %>%
+  group_by(.draw, group, time_point) %>%
+  summarize(.epred = mean(.epred), .groups = "drop") %>%
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = c("Control", "PD"),
+      labels = c("Control", "PwPD")
+    ),
+    #grouping = paste(sex, group, sep = " - "),
+    #grouping = factor(grouping,
+    #                  levels = c("Male - Control",
+    #                             "Male - PwPD",
+    #                             "Female - Control",
+    #                             "Female - PwPD")),
+    time_point = factor(
+      time_point,
+      levels = c("before", "sensors", "after"),
+      labels = c("Before\nSensors", "With\nSensors", "After\nSensors")
+    )
+  )
+
+```
+
+## /sh/ - ME: Timepoint x Group
+```{r}
+robust_M1sh <- rio::import("workingData/data_M1sh.RDS")$pairwise %>%
+  dplyr::select(contrast, group, robust)
+
+data_meContrasts_M1sh <- model_M1sh %>%
+  emmeans::emmeans(~ time_point | group,
+                   epred = TRUE,
+                   re_formula = NA,) %>%
+  emmeans::contrast(method = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::filter(contrast != "after - sensors")
+
+# Compute the interaction contrast (difference in contrasts between groups)
+interaction_contrast <- model_M1sh %>%
+  emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+  emmeans::contrast(interaction = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::rename(contrast = time_point_revpairwise,
+                group = group_revpairwise) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+data_meContrasts_M1sh <- base::rbind(data_meContrasts_M1sh, interaction_contrast) %>%
+  dplyr::mutate(group = case_when(
+    group == "PD" ~ "PwPD",
+    group == "Control" ~ "Control",
+    group == "PD - Control" ~ "PwPD -\nControl"
+  )) %>%
+  base::merge(., robust_M1sh) %>%
+  dplyr::mutate(robust = factor(robust,
+                                levels = c("not robust",
+                                           "robust")))
+
+#bayestestR::p_direction(data_meContrasts_M1sh)
+
+```
+## Combined
+### Expected Posteriors
+```{r}
+# Generate expected predictions from the posterior
+data_posterior_M1 <- rbind(data_posterior_M1s %>%
+                             dplyr::mutate(sound = "/s/"),
+                           data_posterior_M1sh %>%
+                             dplyr::mutate(sound = "/ʃ/"))
+
+plot_grandMean_M1 <- ggplot(data_posterior_M1, 
+                                   aes(x = .epred, y = time_point, 
+                                       fill = group)) +
+  stat_halfeye(alpha = .9) +
+  ggokabeito::scale_fill_okabe_ito(order = c(2, 1)) +
+  labs(x = "Predicted M1 (kHz)", y = NULL,
+       fill = "Group",
+       title = "(a) Posterior Predictions",
+       subtitle = "Predicted M1 after controlling for\nspeaker age, sex, and articulation rate.") +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  facet_wrap(~sound, ncol = 1) +
+  theme(legend.position = "bottom",
+        axis.title = element_text(size = textSize_axisTitle),
+        plot.title = element_text(size = textSize_plotTitle),
+        plot.subtitle = element_text(size = textSize_plotSubtitle))  +
+  guides(fill = guide_legend(nrow = 1))
+```
+
+### ME: Timepoint x Group
+```{r}
+data_meContrasts_M1 <- rbind(data_meContrasts_M1s %>%
+                             dplyr::mutate(sound = "/s/"),
+                           data_meContrasts_M1sh %>%
+                             dplyr::mutate(sound = "/ʃ/"))
+
+#bayestestR::p_direction(data_meContrasts_M1)
+
+plot_RQ1_M1 <- ggplot(
+  data_meContrasts_M1 %>%
+    dplyr::filter(contrast == "sensors - before"),
+  aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of sensors effects (kHz)",
+    y = NULL,
+    title = "(b) Research Question 1",
+    subtitle = "Sensor effect (With Sensors - Before Sensors)\nper group and the effect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  facet_wrap(~sound, ncol = 1) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ1_M1
+
+plot_RQ2_M1 <- ggplot(
+  data_meContrasts_M1 %>%
+    dplyr::filter(contrast == "after - before"),
+  aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of after-sensor\neffects (kHz)",
+    y = NULL,
+    title = "(c) Research Question 2",
+    subtitle = "After-sensor effect (After Sensors -\nBefore Sensors) per group and the\neffect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  facet_wrap(~sound, ncol = 1) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ2_M1
+
+# Combined plot
+plot_M1 <-  plot_grandMean_M1 + plot_RQ1_M1 + plot_RQ2_M1 +
+  patchwork::plot_layout(ncol = 3, heights = c(1), guides = "collect") +
+  plot_annotation(title = "Spectral Center of Gravity (M1)", #subtitle = "Predicted intelligibility ratings across group/severity and speaking conditions.",
+                  theme = theme_clean()) &
+  theme(legend.position = "bottom")
+plot_M1
+
+ggsave(
+  plot = plot_M1,
+  filename = "Figures/Fig_M1.png",
+  height = 7,
+  width = 10,
+  unit = "in",
+  scale = .9,
+  bg = "white"
+)
+
+```
+
+# 05. M2
+## /s/ - Expected Posteriors
+```{r}
+# Generate expected predictions from the posterior
+data_posterior_M2s <- model_M2s %>%
+  tidybayes::epred_draws(
+    newdata = tidyr::expand_grid(
+      group = c("Control", "PD"),
+      time_point = c("before", "sensors", "after"),
+      sex = c("Male", "Female"),
+      age = mean(model_M2s$data$age),
+      artic_rate = mean(model_M2s$data$artic_rate),
+    ),
+    re_formula = NA
+  ) %>%
+  group_by(.draw, group, time_point) %>%
+  summarize(.epred = mean(.epred), .groups = "drop") %>%
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = c("Control", "PD"),
+      labels = c("Control", "PwPD")
+    ),
+    #grouping = paste(sex, group, sep = " - "),
+    #grouping = factor(grouping,
+    #                  levels = c("Male - Control",
+    #                             "Male - PwPD",
+    #                             "Female - Control",
+    #                             "Female - PwPD")),
+    time_point = factor(
+      time_point,
+      levels = c("before", "sensors", "after"),
+      labels = c("Before\nSensors", "With\nSensors", "After\nSensors")
+    )
+  )
+
+```
+
+## /s/ - ME: Timepoint x Group
+```{r}
+robust_M2s <- rio::import("workingData/data_M2s.RDS")$pairwise %>%
+  dplyr::select(contrast, group, robust)
+
+data_meContrasts_M2s <- model_M2s %>%
+  emmeans::emmeans(~ time_point | group,
+                   epred = TRUE,
+                   re_formula = NA,) %>%
+  emmeans::contrast(method = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::filter(contrast != "after - sensors")
+
+# Compute the interaction contrast (difference in contrasts between groups)
+interaction_contrast <- model_M2s %>%
+  emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+  emmeans::contrast(interaction = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::rename(contrast = time_point_revpairwise,
+                group = group_revpairwise) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+data_meContrasts_M2s <- base::rbind(data_meContrasts_M2s, interaction_contrast) %>%
+  dplyr::mutate(group = case_when(
+    group == "PD" ~ "PwPD",
+    group == "Control" ~ "Control",
+    group == "PD - Control" ~ "PwPD -\nControl"
+  )) %>%
+  base::merge(., robust_M2s) %>%
+  dplyr::mutate(robust = factor(robust,
+                                levels = c("not robust",
+                                           "robust")))
+
+#bayestestR::p_direction(data_meContrasts_M2s)
+
+```
+
+## /sh/ - Expected Posteriors
+```{r}
+# Generate expected predictions from the posterior
+data_posterior_M2sh <- model_M2sh %>%
+  tidybayes::epred_draws(
+    newdata = tidyr::expand_grid(
+      group = c("Control", "PD"),
+      time_point = c("before", "sensors", "after"),
+      sex = c("Male", "Female"),
+      age = mean(model_M2sh$data$age),
+      artic_rate = mean(model_M2sh$data$artic_rate),
+    ),
+    re_formula = NA
+  ) %>%
+  group_by(.draw, group, time_point) %>%
+  summarize(.epred = mean(.epred), .groups = "drop") %>%
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = c("Control", "PD"),
+      labels = c("Control", "PwPD")
+    ),
+    #grouping = paste(sex, group, sep = " - "),
+    #grouping = factor(grouping,
+    #                  levels = c("Male - Control",
+    #                             "Male - PwPD",
+    #                             "Female - Control",
+    #                             "Female - PwPD")),
+    time_point = factor(
+      time_point,
+      levels = c("before", "sensors", "after"),
+      labels = c("Before\nSensors", "With\nSensors", "After\nSensors")
+    )
+  )
+
+```
+
+## /sh/ - ME: Timepoint x Group
+```{r}
+robust_M2sh <- rio::import("workingData/data_M2sh.RDS")$pairwise %>%
+  dplyr::select(contrast, group, robust)
+
+data_meContrasts_M2sh <- model_M2sh %>%
+  emmeans::emmeans(~ time_point | group,
+                   epred = TRUE,
+                   re_formula = NA,) %>%
+  emmeans::contrast(method = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::filter(contrast != "after - sensors")
+
+# Compute the interaction contrast (difference in contrasts between groups)
+interaction_contrast <- model_M2sh %>%
+  emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+  emmeans::contrast(interaction = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::rename(contrast = time_point_revpairwise,
+                group = group_revpairwise) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+data_meContrasts_M2sh <- base::rbind(data_meContrasts_M2sh, interaction_contrast) %>%
+  dplyr::mutate(group = case_when(
+    group == "PD" ~ "PwPD",
+    group == "Control" ~ "Control",
+    group == "PD - Control" ~ "PwPD -\nControl"
+  )) %>%
+  base::merge(., robust_M2sh) %>%
+  dplyr::mutate(robust = factor(robust,
+                                levels = c("not robust",
+                                           "robust")))
+
+#bayestestR::p_direction(data_meContrasts_M2sh)
+
+```
+## Combined
+### Expected Posteriors
+```{r}
+# Generate expected predictions from the posterior
+data_posterior_M2 <- rbind(data_posterior_M2s %>%
+                             dplyr::mutate(sound = "/s/"),
+                           data_posterior_M2sh %>%
+                             dplyr::mutate(sound = "/ʃ/"))
+
+plot_grandMean_M2 <- ggplot(data_posterior_M2, 
+                                   aes(x = .epred, y = time_point, 
+                                       fill = group)) +
+  stat_halfeye(alpha = .9) +
+  ggokabeito::scale_fill_okabe_ito(order = c(2, 1)) +
+  labs(x = "Predicted M2 (kHz)", y = NULL,
+       fill = "Group",
+       title = "(a) Posterior Predictions",
+       subtitle = "Predicted M2 after controlling for\nspeaker age, sex, and articulation rate.") +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  facet_wrap(~sound, ncol = 1) +
+  theme(legend.position = "bottom",
+        axis.title = element_text(size = textSize_axisTitle),
+        plot.title = element_text(size = textSize_plotTitle),
+        plot.subtitle = element_text(size = textSize_plotSubtitle))  +
+  guides(fill = guide_legend(nrow = 1))
+```
+
+### ME: Timepoint x Group
+```{r}
+data_meContrasts_M2 <- rbind(data_meContrasts_M2s %>%
+                             dplyr::mutate(sound = "/s/"),
+                           data_meContrasts_M2sh %>%
+                             dplyr::mutate(sound = "/ʃ/"))
+
+#bayestestR::p_direction(data_meContrasts_M2)
+
+plot_RQ1_M2 <- ggplot(
+  data_meContrasts_M2 %>%
+    dplyr::filter(contrast == "sensors - before"),
+  aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of sensors effects (kHz)",
+    y = NULL,
+    title = "(b) Research Question 1",
+    subtitle = "Sensor effect (With Sensors - Before Sensors)\nper group and the effect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  facet_wrap(~sound, ncol = 1) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ1_M2
+
+plot_RQ2_M2 <- ggplot(
+  data_meContrasts_M2 %>%
+    dplyr::filter(contrast == "after - before"),
+  aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of after-sensor\neffects (kHz)",
+    y = NULL,
+    title = "(c) Research Question 2",
+    subtitle = "After-sensor effect (After Sensors -\nBefore Sensors) per group and the\neffect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  facet_wrap(~sound, ncol = 1) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ2_M2
+
+# Combined plot
+plot_M2 <-  plot_grandMean_M2 + plot_RQ1_M2 + plot_RQ2_M2 +
+  patchwork::plot_layout(ncol = 3, heights = c(1), guides = "collect") +
+  plot_annotation(title = "Spectral Standard Deviation (M2)", #subtitle = "Predicted intelligibility ratings across group/severity and speaking conditions.",
+                  theme = theme_clean()) &
+  theme(legend.position = "bottom")
+plot_M2
+
+ggsave(
+  plot = plot_M2,
+  filename = "Figures/Fig_M2.png",
+  height = 7,
+  width = 10,
+  unit = "in",
+  scale = .9,
+  bg = "white"
+)
+
+```
+
+# 06. Intelligibility
+## Expected Posteriors
+```{r}
+epsilon <- 1e-5
+# Generate expected predictions from the posterior
+data_posterior_Int <- model_Int %>%
+  tidybayes::epred_draws(
+    newdata = tidyr::expand_grid(
+      group = c("Control", "PD"),
+      time_point = c("before", "sensors", "after"),
+      sex = c("Male", "Female"),
+      age = mean(model_Int$data$age), # 66.91 yo
+      artic_rate = mean(model_Int$data$artic_rate), # 4.85 syl/s
+      trial_number = mean(model_Int$data$trial_number) # trial 9
+    ),
+    re_formula = NA
+  ) %>%
+  group_by(.draw, group, time_point) %>%
+  summarize(.epred = mean(.epred), .groups = "drop") %>%
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = c("Control", "PD"),
+      labels = c("Control", "PwPD")
+    ),
+    #grouping = paste(sex, group, sep = " - "),
+    #grouping = factor(grouping,
+    #                  levels = c("Male - Control",
+    #                             "Male - PwPD",
+    #                             "Female - Control",
+    #                             "Female - PwPD")),
+    time_point = factor(
+      time_point,
+      levels = c("before", "sensors", "after"),
+      labels = c("Before\nSensors", "With\nSensors", "After\nSensors")
+    ),
+    .epred = (.epred - epsilon) / (1 - 2 * epsilon),
+    # Step 1 & 2: Reverse the offset and scaling
+    .epred = .epred * nrow(.) / ((nrow(.) - 1) + .5),
+    .epred = .epred * 100 # to turn it back to a scale of 0 - 100
+  )
+
+plot_grandMean_Int <- ggplot(data_posterior_Int, 
+                                   aes(x = .epred, y = time_point, 
+                                       fill = group)) +
+  stat_halfeye(alpha = .9) +
+  ggokabeito::scale_fill_okabe_ito(order = c(2, 1)) +
+  labs(x = "Predicted intelligibility rating (%)", y = NULL,
+       fill = "Group",
+       title = "(a) Posterior Predictions",
+       subtitle = "Predicted intelligibility rating after controlling\nfor speaker age, sex, articulation rate,\nand trial number.") +
+  scale_y_discrete(limits = rev) +
+  coord_cartesian(xlim = c(72,100)) +
+  theme_clean() +
+  theme(legend.position = "bottom",
+        axis.title = element_text(size = textSize_axisTitle),
+        plot.title = element_text(size = textSize_plotTitle),
+        plot.subtitle = element_text(size = textSize_plotSubtitle),
+        #panel.border = element_rect(color = "grey", fill = NA)
+        ) +
+  guides(fill = guide_legend(nrow = 1))
+```
+
+## ME: Timepoint x Group
+```{r}
+robust_Int <- rio::import("workingData/data_Int.RDS")$pairwise %>%
+  dplyr::select(contrast, group, robust)
+
+epsilon <- 1e-5
+data_meContrasts_Int <- model_Int %>%
+  emmeans::emmeans(~ time_point | group,
+                   epred = TRUE,
+                   re_formula = NA,) %>%
+  emmeans::contrast(method = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::mutate(
+    .value = (.value - epsilon) / (1 - 2 * epsilon),
+    # Step 1 & 2: Reverse the offset and scaling
+    .value = .value * nrow(.) / ((nrow(.) - 1) + .5),
+    .value = .value * 100
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+# Compute the interaction contrast (difference in contrasts between groups)
+interaction_contrast <- model_Int %>%
+  emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+  emmeans::contrast(interaction = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::mutate(
+    .value = (.value - epsilon) / (1 - 2 * epsilon),
+    # Step 1 & 2: Reverse the offset and scaling
+    .value = .value * nrow(.) / ((nrow(.) - 1) + .5),
+    .value = .value * 100
+  ) %>%
+  dplyr::rename(contrast = time_point_revpairwise,
+                group = group_revpairwise) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+data_meContrasts_Int <- base::rbind(data_meContrasts_Int, interaction_contrast) %>%
+  dplyr::mutate(group = case_when(
+    group == "PD" ~ "PwPD",
+    group == "Control" ~ "Control",
+    group == "PD - Control" ~ "PwPD -\nControl"
+  )) %>%
+  base::merge(., robust_Int) %>%
+  dplyr::mutate(robust = factor(robust,
+                                levels = c("not robust",
+                                           "robust")))
+
+plot_RQ1_Int <- ggplot(
+  data_meContrasts_Int %>%
+    dplyr::filter(contrast == "sensors - before"),
+  aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  # Text annotation for the Control and PwPD distributions
+  annotate(
+    'text',
+    x = -.13*100, # Play around with the coordinates until you're satisfied
+    y = 3.3,
+    label = "Both Control and PwPD\nwere robustly less intelligbile\nwith EMA sensors on...",
+    hjust = 0,
+    size = 2,
+    alpha = .8,
+    color = "black"
+  ) +
+  # Arrow to the Control distribution
+  annotate(
+    'curve',
+    x = -.095*100, # Play around with the coordinates until you're satisfied
+    y = 3.1,
+    xend = -.03*100,
+    yend = 2.96,
+    linewidth = .4,
+    curvature = 0.2,
+    arrow = arrow(length = unit(0.1, 'cm'), type = "closed"),
+    alpha = 1,
+    color = "darkgrey"
+  ) +
+  # Arrow to the PwPD distribution
+  annotate(
+    'curve',
+    x = -.096*100, # Play around with the coordinates until you're satisfied
+    y = 3.1,
+    xend = -.065*100,
+    yend = 2.3,
+    linewidth = .4,
+    curvature = 0.2,
+    arrow = arrow(length = unit(0.1, 'cm'), type = "closed"),
+    alpha = 1,
+    color = "darkgrey"
+  ) +
+  # Text for the contrast distribution
+  annotate(
+    'text',
+    x = -.07*100, # Play around with the coordinates until you're satisfied
+    y = 0.73,
+    label = "... but these effects\nwere robustly different\nbetween the groups.",
+    hjust = 1,
+    size = 2,
+    alpha = .8,
+    color = "black"
+  ) +
+    # Arrow to the contrast distribution
+  annotate(
+    'curve',
+    x = -.065*100, # Play around with the coordinates until you're satisfied
+    y = 0.73,
+    xend = -.045*100,
+    yend = .95,
+    linewidth = .4,
+    curvature = 0.2,
+    arrow = arrow(length = unit(0.1, 'cm'), type = "closed"),
+    alpha = 1,
+    color = "darkgrey"
+  ) +
+  labs(
+    x = "Average marginal effect of sensors effects (%)",
+    y = NULL,
+    title = "(b) Research Question 1",
+    subtitle = "Sensor effect (With Sensors - Before Sensors)\nper group and the effect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ1_Int
+
+plot_RQ2_Int <- ggplot(
+  data_meContrasts_Int %>%
+    dplyr::filter(contrast == "after - before"),
+    aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of after-sensor\neffects (%)",
+    y = NULL,
+    title = "(c) Research Question 2",
+    subtitle = "After-sensor effect (After Sensors -\nBefore Sensors) per group and the\neffect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ2_Int
+
+# Combined plot
+plot_Int <-  plot_grandMean_Int + plot_RQ1_Int + plot_RQ2_Int +
+  patchwork::plot_layout(ncol = 3, heights = c(1), guides = "collect") +
+  plot_annotation(title = "Intelligibility", #subtitle = "Predicted intelligibility ratings across group/severity and speaking conditions.",
+                  theme = theme_clean()) &
+  theme(legend.position = "bottom")
+plot_Int
+
+ggsave(
+  plot = plot_Int,
+  filename = "Figures/Fig_Int.png",
+  height = 6,
+  width = 10,
+  unit = "in",
+  scale = .9,
+  bg = "white"
+)
+
+```
+
+
+# 07. Naturalness
+## Expected Posteriors
+```{r}
+epsilon <- 1e-5
+# Generate expected predictions from the posterior
+data_posterior_Nat <- model_Nat %>%
+  tidybayes::epred_draws(
+    newdata = tidyr::expand_grid(
+      group = c("Control", "PD"),
+      time_point = c("before", "sensors", "after"),
+      sex = c("Male", "Female"),
+      age = mean(model_Nat$data$age), # 66.91 yo
+      artic_rate = mean(model_Nat$data$artic_rate), # 4.85 syl/s
+      trial_number = mean(model_Nat$data$trial_number) # trial 9
+    ),
+    re_formula = NA
+  ) %>%
+  group_by(.draw, group, time_point) %>%
+  summarize(.epred = mean(.epred), .groups = "drop") %>%
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = c("Control", "PD"),
+      labels = c("Control", "PwPD")
+    ),
+    #grouping = paste(sex, group, sep = " - "),
+    #grouping = factor(grouping,
+    #                  levels = c("Male - Control",
+    #                             "Male - PwPD",
+    #                             "Female - Control",
+    #                             "Female - PwPD")),
+    time_point = factor(
+      time_point,
+      levels = c("before", "sensors", "after"),
+      labels = c("Before\nSensors", "With\nSensors", "After\nSensors")
+    ),
+    .epred = (.epred - epsilon) / (1 - 2 * epsilon),
+    # Step 1 & 2: Reverse the offset and scaling
+    .epred = .epred * nrow(.) / ((nrow(.) - 1) + .5),
+    .epred = .epred * 100
+  )
+
+plot_grandMean_Nat <- ggplot(data_posterior_Nat, 
+                                   aes(x = .epred, y = time_point, 
+                                       fill = group)) +
+  stat_halfeye(alpha = .9) +
+  ggokabeito::scale_fill_okabe_ito(order = c(2, 1)) +
+  labs(x = "Predicted naturalness rating (%)", y = NULL,
+       fill = "Group",
+       title = "(a) Posterior Predictions",
+       subtitle = "Predicted naturalness rating after controlling\nfor speaker age, sex, articulation rate,\nand trial number.") +
+  scale_y_discrete(limits = rev) +
+  coord_cartesian(xlim = c(0,100)) +
+  theme_clean() +
+  theme(legend.position = "bottom",
+        axis.title = element_text(size = textSize_axisTitle),
+        plot.title = element_text(size = textSize_plotTitle),
+        plot.subtitle = element_text(size = textSize_plotSubtitle))  +
+  guides(fill = guide_legend(nrow = 1))
+```
+
+## ME: Timepoint x Group
+```{r}
+robust_Nat <- rio::import("workingData/data_Nat.RDS")$pairwise %>%
+  dplyr::select(contrast, group, robust)
+
+epsilon <- 1e-5
+data_meContrasts_Nat <- model_Nat %>%
+  emmeans::emmeans(~ time_point | group,
+                   epred = TRUE,
+                   re_formula = NA,) %>%
+  emmeans::contrast(method = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::mutate(
+    .value = (.value - epsilon) / (1 - 2 * epsilon),
+    # Step 1 & 2: Reverse the offset and scaling
+    .value = .value * nrow(.) / ((nrow(.) - 1) + .5),
+    .value = .value * 100
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+# Compute the interaction contrast (difference in contrasts between groups)
+interaction_contrast <- model_Nat %>%
+  emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+  emmeans::contrast(interaction = "revpairwise") %>%
+  gather_emmeans_draws() %>%
+  dplyr::mutate(
+    .value = (.value - epsilon) / (1 - 2 * epsilon),
+    # Step 1 & 2: Reverse the offset and scaling
+    .value = .value * nrow(.) / ((nrow(.) - 1) + .5),
+    .value = .value * 100
+  ) %>%
+  dplyr::rename(contrast = time_point_revpairwise,
+                group = group_revpairwise) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+data_meContrasts_Nat <- base::rbind(data_meContrasts_Nat, interaction_contrast)  %>%
+  dplyr::mutate(group = case_when(
+    group == "PD" ~ "PwPD",
+    group == "Control" ~ "Control",
+    group == "PD - Control" ~ "PwPD -\nControl"
+  )) %>%
+  base::merge(., robust_Nat) %>%
+  dplyr::mutate(robust = factor(robust,
+                                levels = c("not robust",
+                                           "robust")))
+
+#bayestestR::p_direction(data_meContrasts_Nat)
+
+plot_RQ1_Nat <- ggplot(
+  data_meContrasts_Nat %>%
+    dplyr::filter(contrast == "sensors - before"),
+    aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of sensors effects (%)",
+    y = NULL,
+    title = "(b) Research Question 1",
+    subtitle = "Sensor effect (With Sensors - Before Sensors)\nper group and the effect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ1_Nat
+
+plot_RQ2_Nat <- ggplot(
+  data_meContrasts_Nat %>%
+    dplyr::filter(contrast == "after - before"),
+    aes(x = .value, y = group, fill = robust)
+) +
+  geom_vline(xintercept = 0, alpha = .3) +
+  stat_halfeye(alpha = .9) +
+  scale_fill_manual(values = c("#E3B5CF", "#CC79A7"),
+                     drop = FALSE) +
+  labs(
+    x = "Average marginal effect of after-sensors\neffects (%)",
+    y = NULL,
+    title = "(c) Research Question 2",
+    subtitle = "After-sensor effect (After Sensors -\nBefore Sensors) per group and the\neffect contrast between groups.",
+    fill = "Robust at 95% HPD Interval & pd"
+  ) +
+  scale_y_discrete(limits = rev) +
+  theme_clean() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = textSize_axisTitle),
+    plot.title = element_text(size = textSize_plotTitle),
+    plot.subtitle = element_text(size = textSize_plotSubtitle)
+  )
+
+plot_RQ2_Nat
+
+# Combined plot
+plot_Nat <-  plot_grandMean_Nat + plot_RQ1_Nat + plot_RQ2_Nat +
+  patchwork::plot_layout(ncol = 3,
+                         heights = c(1),
+                         guides = "collect") +
+  plot_annotation(title = "Naturalness",
+                  theme = theme_clean()) &
+  theme(legend.position = "bottom")
+plot_Nat
+
+ggsave(
+  plot = plot_Nat,
+  filename = "Figures/Fig_Nat.png",
+  height = 6,
+  width = 10,
+  unit = "in",
+  scale = .9,
+  bg = "white"
+)
+
+```
+# S01. Individual Variability
+```{r}
+workingData_articRate <- base::readRDS(file = "workingData/data_articRate.RDS")
+workingData_AAVS <- base::readRDS(file = "workingData/data_AAVS.RDS")
+workingData_M1s <- base::readRDS(file = "workingData/data_M1s.RDS")
+workingData_M1sh <- base::readRDS(file = "workingData/data_M1sh.RDS")
+workingData_M2s <- base::readRDS(file = "workingData/data_M2s.RDS")
+workingData_M2sh <- base::readRDS(file = "workingData/data_M2sh.RDS")
+workingData_Int <- base::readRDS(file = "workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "workingData/data_Nat.RDS")
+
+allData <- bind_rows(
+  workingData_articRate$modelData %>%
+    dplyr::mutate(measure = "Articulation Rate") %>%
+    dplyr::rename(value = articRate),
+  
+  workingData_AAVS$modelData %>%
+    dplyr::mutate(measure = "AAVS") %>%
+    dplyr::rename(value = AAVS),
+  
+  workingData_M1s$modelData %>%
+    dplyr::mutate(measure = "M1 for /s/") %>%
+    dplyr::rename(value = M1s),
+  
+  workingData_M2s$modelData %>%
+    dplyr::mutate(measure = "M2 for /s/") %>%
+    dplyr::rename(value = M2s),
+  
+  workingData_M1sh$modelData %>%
+    dplyr::mutate(measure = "M1 for /ʃ/") %>%
+    dplyr::rename(value = M1sh),
+  
+  workingData_M2sh$modelData %>%
+    dplyr::mutate(measure = "M2 for /ʃ/") %>%
+    dplyr::rename(value = M2sh),
+  
+  workingData_Int$modelData %>%
+    dplyr::mutate(measure = "Intelligibility",
+                  Int = Int*100) %>%
+    dplyr::rename(value = Int),
+  
+  workingData_Nat$modelData %>%
+    dplyr::mutate(measure = "Naturalness",
+                  Nat = Nat*100) %>%
+    dplyr::rename(value = Nat)
+) %>%
+  dplyr::mutate(time_point = factor(time_point,
+                                    levels = c("before",
+                                               "sensors",
+                                               "after"),
+                                    labels = c("Before\nSensors",
+                                               "With\nSensors",
+                                               "After\nSensors")),
+                measure = factor(measure,
+                                 levels = c("Articulation Rate",
+                                            "AAVS",
+                                            "M1 for /s/",
+                                            "M2 for /s/",
+                                            "M1 for /ʃ/",
+                                            "M2 for /ʃ/",
+                                            "Intelligibility",
+                                            "Naturalness"),
+                                 labels = c("Articulation Rate (syl/s)",
+                                            "AAVS (mel²)",
+                                            "M1 for /s/ (kHz)",
+                                            "M2 for /s/ (kHz)",
+                                            "M1 for /ʃ/ (kHz)",
+                                            "M2 for /ʃ/ (kHz)",
+                                            "Intelligibility (%)",
+                                            "Naturalness (%)")),
+                group = factor(group,
+                               levels = c("Control",
+                                          "PD"),
+                               labels = c("Control",
+                                          "PwPD")),
+                grouping = paste(sex, group, sep = " - "),
+                grouping = factor(grouping,
+                      levels = c("Male - Control",
+                                 "Male - PwPD",
+                                 "Female - Control",
+                                 "Female - PwPD"))) %>%
+  dplyr::group_by(measure, speaker_id, group, sex, grouping, age, time_point) %>%
+  dplyr::summarise(value = mean(value)) %>%
+  dplyr::ungroup()
+
+plotData <- bind_rows(
+  allData %>%
+    dplyr::mutate(plot = "All Data"),
+  allData %>%
+    dplyr::filter(time_point != "After\nSensors") %>%
+    dplyr::mutate(plot = "Sensor Effects"),
+  allData %>%
+    dplyr::filter(time_point != "With\nSensors") %>%
+    dplyr::mutate(plot = "After-Sensor Effects"),
+) %>%
+  dplyr::mutate(plot = factor(plot,
+                              levels = c("All Data",
+                                         "Sensor Effects",
+                                         "After-Sensor Effects"),
+                              labels = c("All Data",
+                                         "Sensor Effects",
+                                         "After-Sensor\nEffects"))) %>%
+  dplyr::filter(plot != "All Data")
+
+plot_rawData_sensorEffects <- plotData %>%
+  dplyr::filter(plot == "Sensor Effects") %>%
+  ggplot() +
+  aes(x = time_point, y = value, color = group) +
+  geom_line(aes(group = speaker_id), alpha = .3) +
+  geom_line(
+    data = plotData %>%
+      dplyr::filter(plot == "Sensor Effects") %>%
+      dplyr::group_by(measure, group, sex, time_point, plot) %>%
+      dplyr::summarise(value = mean(value)),
+    aes(group = group),
+    alpha = .8,
+    linewidth = 1.5
+  ) +
+  #geom_point(aes(shape = sex)) +
+  ggokabeito::scale_color_okabe_ito(order = c(2,1)) +
+  facet_grid(measure ~ sex, scales = "free", switch = "y") +
+  labs(x = NULL,
+       y = NULL,
+       color = "Group",
+       shape = "Sex",
+       title = "Sensor Effects") +
+  scale_x_discrete(expand=expansion(c(.35,.35))) +
+  theme_clean() &
+  theme(panel.border = element_rect(fill = NA, color = "black"),
+        strip.background = element_rect(fill = "white", color = NA),
+        strip.placement = "outside",
+        strip.text.y.left = element_text(angle = 0, face="plain", hjust = 1),)
+plot_rawData_sensorEffects
+
+plot_rawData_afterSensorEffects <- plotData %>%
+  dplyr::filter(plot == "After-Sensor\nEffects") %>%
+  ggplot() +
+  aes(x = time_point, y = value, color = group) +
+  geom_line(aes(group = speaker_id), alpha = .3) +
+  geom_line(
+    data = plotData %>%
+      dplyr::filter(plot == "After-Sensor\nEffects") %>%
+      dplyr::group_by(measure, group, sex, time_point, plot) %>%
+      dplyr::summarise(value = mean(value)),
+    aes(group = group),
+    alpha = .8,
+    linewidth = 1.5
+  ) +
+  #geom_point(aes(shape = sex)) +
+  ggokabeito::scale_color_okabe_ito(order = c(2,1)) +
+  facet_grid(measure ~ sex, scales = "free") +
+  labs(x = NULL,
+       y = NULL,
+       color = "Group",
+       shape = "Sex",
+       title = "After-Sensor Effects") +
+  scale_x_discrete(expand=expansion(c(.35,.35))) +
+  theme_clean() &
+  theme(panel.border = element_rect(fill = NA, color = "black"),
+        #strip.background = element_rect(fill = "white", color = NA),
+        strip.placement = "outside",
+        #strip.text.y.left = element_text(angle = 0, face="plain", hjust = 1),
+        strip.background = element_blank(),
+        strip.text.y. = element_blank())
+plot_rawData_afterSensorEffects
+
+plot_rawData <- plot_rawData_sensorEffects + plot_rawData_afterSensorEffects +
+  patchwork::plot_layout(ncol = 2, #heights = c(1),
+                         guides = "collect") +
+  plot_annotation(title = "Raw Data", #subtitle = "Predicted intelligibility ratings across group/severity and speaking conditions.",
+                  theme = theme_clean()) &
+  theme(
+    legend.position = "right",
+    strip.background.right = element_blank(),
+    strip.text.y.right = element_blank()
+  )
+
+ggsave(
+  plot = plot_rawData,
+  filename = "Figures/SupFig_rawData.png",
+  height = 10,
+  width = 9,
+  unit = "in",
+  scale = .9,
+  bg = "white"
+)
+```
+

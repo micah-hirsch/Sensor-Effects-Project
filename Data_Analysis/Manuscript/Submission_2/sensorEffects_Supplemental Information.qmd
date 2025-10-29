@@ -1,0 +1,382 @@
+---
+title: "Supplemental Information: The Effects of Electromagnetic Articulography Sensors on Speech in Individuals with and without Dysarthria"
+author: "Austin Thompson^1^, Micah Hirsch^2^, and Yunjung Kim^3^"
+abstract: |
+  1.	Department of Communication Sciences and Disorders, University of Houston
+  2.	Department of Speech, Language, and Hearing Sciences, Boston University
+  3.	School of Communication Science and Disorders, Florida State University
+format:
+  #docx:
+    # this holds the style template for the word document
+    #reference-doc: "../templates-data/custom-reference.docx"
+    # this holds the style template for the word document
+    #pandoc_args: ["-Fpandoc-crossref"]
+  html:
+    toc: true
+    toc_float: true
+    html-math-method: katex
+    css: styles.css
+    embed-resources: true
+    self-contained-math: true
+    fig-cap-location: top
+editor: visual
+bibliography: references.bib
+csl: "apa.csl"
+crossref:
+  custom:
+    - kind: float
+      key: supptbl
+      latex-env: supptbl
+      reference-prefix: Table S
+      space-before-numbering: false
+      latex-list-of-description: Supplementary Table
+    - kind: float
+      key: suppfig
+      latex-env: suppfig
+      reference-prefix: Figure S
+      space-before-numbering: false
+      latex-list-of-description: Supplementary Figure
+---
+
+::: {custom-style="noIndentParagraph"}
+<br>
+
+**Corresponding Author**:\
+Austin Thompson, PhD, CCC-SLP\
+athomp27\@central.uh.edu
+
+<br>
+
+\newpage
+:::
+
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+library(tidyverse)
+library(quarto)
+
+```
+
+# Supplemental Information
+
+## Group, Sex, Age, and Order Effects
+```{r echo=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+workingData_articRate <- base::readRDS(file = "workingData/data_articRate.RDS")
+workingData_AAVS <- base::readRDS(file = "workingData/data_AAVS.RDS")
+workingData_M1s <- base::readRDS(file = "workingData/data_M1s.RDS")
+workingData_M1sh <- base::readRDS(file = "workingData/data_M1sh.RDS")
+workingData_M2s <- base::readRDS(file = "workingData/data_M2s.RDS")
+workingData_M2sh <- base::readRDS(file = "workingData/data_M2sh.RDS")
+workingData_Int <- base::readRDS(file = "workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "workingData/data_Nat.RDS")
+
+# APA leading zero and Rounding function
+apa_rd <- function(x, digits = 2, add = TRUE, max = NULL) {
+  # Set max if not specified
+  if (is.null(max)) {
+    max <- digits + 3
+  }
+
+  # Round and format
+  y <- round(x, digits = digits)
+  yk <- format(y, nsmall = digits, scientific = FALSE)
+  nzero <- sum(as.numeric(y) == 0)
+
+  if (add == TRUE) {
+    while (nzero > 0 && digits < max) {
+      zeros <- as.numeric(y) == 0
+      digits <- digits + 1
+      y[zeros] <- round(x[zeros], digits = digits)
+      yk[zeros] <- format(y[zeros], nsmall = digits, scientific = FALSE)
+      nzero <- sum(as.numeric(y) == 0)
+    }
+  }
+
+  # Remove leading zeros per APA style
+  z <- sub("^(-?)0\\.", "\\1.", gsub(" +", "", yk))
+  return(z)
+}
+
+emmeans_AAVS <- base::readRDS("Models/brms_AAVS.rds") %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>% 
+  as.data.frame(.) %>%
+  dplyr::select(time_point, group, emmean) %>%
+  tidyr::pivot_wider(names_from = time_point,
+                     values_from = emmean) %>%
+  mutate(RQ1_percent_change = (sensors - before) / before * 100,
+         RQ1_percent_change = paste0(weights::rd(RQ1_percent_change), "%"),
+         RQ2_percent_change = (after - before) / before * 100,
+         RQ2_percent_change = paste0(weights::rd(RQ2_percent_change), "%"))
+
+emmeans_Nat <- base::readRDS("Models/brms_Nat.rds") %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>% 
+  as.data.frame(.) %>%
+  dplyr::select(time_point, group, emmean) %>%
+  tidyr::pivot_wider(names_from = time_point,
+                     values_from = emmean) %>%
+  mutate(RQ1_percent_change = (sensors - before) / before * 100,
+         RQ1_percent_change = paste0(weights::rd(RQ1_percent_change), "%"),
+         RQ2_percent_change = (after - before) / before * 100,
+         RQ2_percent_change = paste0(weights::rd(RQ2_percent_change), "%"))
+
+emmeans_Int <- base::readRDS("Models/brms_Int.rds") %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>% 
+  as.data.frame(.) %>%
+  dplyr::select(time_point, group, emmean) %>%
+  tidyr::pivot_wider(names_from = time_point,
+                     values_from = emmean) %>%
+  mutate(RQ1_percent_change = (sensors - before) / before * 100,
+         RQ1_percent_change = paste0(weights::rd(RQ1_percent_change), "%"),
+         RQ2_percent_change = (after - before) / before * 100,
+         RQ2_percent_change = paste0(weights::rd(RQ2_percent_change), "%"))
+
+
+pd <- rbind(
+  # articRate
+  cbind(measure = workingData_articRate$pairwise$measure,
+            group = workingData_articRate$pairwise$group,
+            contrast = workingData_articRate$pairwise$contrast,
+            pd = workingData_articRate$pairwise$pd),
+  # AAVS
+  cbind(measure = workingData_AAVS$pairwise$measure,
+            group = workingData_AAVS$pairwise$group,
+            contrast = workingData_AAVS$pairwise$contrast,
+            pd = workingData_AAVS$pairwise$pd),
+  # M1s
+  cbind(measure = workingData_M1s$pairwise$measure,
+            group = workingData_M1s$pairwise$group,
+            contrast = workingData_M1s$pairwise$contrast,
+            pd = workingData_M1s$pairwise$pd),
+  # M1sh
+  cbind(measure = workingData_M1sh$pairwise$measure,
+            group = workingData_M1sh$pairwise$group,
+            contrast = workingData_M1sh$pairwise$contrast,
+            pd = workingData_M1sh$pairwise$pd),
+  # M2s
+  cbind(measure = workingData_M2s$pairwise$measure,
+            group = workingData_M2s$pairwise$group,
+            contrast = workingData_M2s$pairwise$contrast,
+            pd = workingData_M2s$pairwise$pd),
+  # M2sh
+  cbind(measure = workingData_M2sh$pairwise$measure,
+            group = workingData_M2sh$pairwise$group,
+            contrast = workingData_M2sh$pairwise$contrast,
+            pd = workingData_M2sh$pairwise$pd),
+  # Int
+  cbind(measure = workingData_Int$pairwise$measure,
+            group = workingData_Int$pairwise$group,
+            contrast = workingData_Int$pairwise$contrast,
+            pd = workingData_Int$pairwise$pd),
+  # Nat
+  cbind(measure = workingData_Nat$pairwise$measure,
+            group = workingData_Nat$pairwise$group,
+            contrast = workingData_Nat$pairwise$contrast,
+            pd = workingData_Nat$pairwise$pd)
+) %>%
+  as.data.frame() %>%
+  dplyr::mutate(pd = as.numeric(pd)*100,
+                pd = round(pd),
+                pd = paste0(pd,"%"),
+                group = case_when(
+                  group == "PwPD -\nControl" ~ "groupDiff",
+                  TRUE ~ group
+                ),
+                contrast = case_when(
+                  contrast == "sensors - before" ~ "sensorEffects",
+                  contrast == "after - before" ~ "afterSensorEffects"
+                ))
+
+# Nest by measure, group, and contrast
+pd <- pd %>%
+  split(.$measure) %>%
+  map(~ split(.x, .x$group) %>%
+        map(~ split(.x$pd, .x$contrast) %>%
+              map(~ .x[[1]])))  # extract the single pd value
+
+
+writeUp <- dplyr::bind_rows(
+  workingData_articRate[["modelSummary"]] %>%
+    dplyr::mutate(measure = "articRate"),
+  workingData_AAVS[["modelSummary"]] %>%
+    dplyr::mutate(measure = "AAVS"),
+  workingData_M1s[["modelSummary"]] %>%
+    dplyr::mutate(measure = "M1s"),
+  workingData_M1sh[["modelSummary"]] %>%
+    dplyr::mutate(measure = "M1sh"),
+  workingData_M2s[["modelSummary"]] %>%
+    dplyr::mutate(measure = "M2s"),
+  workingData_M2sh[["modelSummary"]] %>%
+    dplyr::mutate(measure = "M2sh"),
+  workingData_Int[["modelSummary"]] %>%
+    dplyr::mutate(measure = "Int"),
+  workingData_Nat[["modelSummary"]] %>%
+    dplyr::mutate(measure = "Nat"),
+)  %>%
+  dplyr::filter(effect == "fixed") %>%
+  dplyr::mutate(
+    CI = paste0("CI = [",
+                apa_rd(l_95_CI),
+                ", ",
+                apa_rd(u_95_CI, digits = 2, add = T, max = 10),
+                "]"),
+    pd = paste0(apa_rd(pd*100, digits = 0),"%"),
+    writeUp = paste0("β = ",apa_rd(estimate),", ",
+                     "pd = ", pd,", ",
+                     CI) 
+  ) %>%
+  dplyr::select(measure, term, estimate, pd, CI, writeUp)
+
+# 1. Split the data by measure
+results <- split(writeUp, f = writeUp$measure)
+
+# 2. Within each measure, split by term
+results <- lapply(results, function(measure_data) {
+  term_list <- split(measure_data, f = measure_data$term)
+  
+  # 3. For each term, extract only the writeUp column
+  lapply(term_list, function(term_data) term_data$writeUp)
+})
+
+```
+Although group, sex, age, and trial order effects within the Before Sensors time point were not the primary focus of this study, their inclusion in our models as interaction terms (Group × Time Point) or covariates (sex, age, trial order) allowed us to examine these variables.
+
+**Group Effects.** PwPD demonstrated robustly smaller AAVSs (`{r} results$AAVS$groupPD`) compared to control speakers at the baseline Before Sensors condition, after adjusting for age, sex, and articulation rate. Conversely, PwPD and control speakers showed comparable articulation rates (`{r} results$articRate$groupPD`), M1 (/s/: `{r} results$M1s$groupPD`; /ʃ/: `{r} results$M1sh$groupPD`) and M2 values (/s/: `{r} results$M2s$groupPD`; /ʃ/: `{r} results$M2sh$groupPD`), intelligibility ratings (`{r} results$Int$groupPD`) and naturalness ratings (`{r} results$Nat$groupPD`) at the baseline Before Sensors condition.
+
+**Sex Effects.** Female speakers demonstrated robustly larger AAVSs (`{r} results$AAVS$sexFemale`) and higher M1 and M2 values for /s/ (M1: `{r} results$M1s$sexFemale`; M2: `{r} results$M2s$sexFemale`) compared to male speakers, after adjusting for age, group, and articulation rate. Male and female speakers did not robustly differ in their articulation rates (`{r} results$articRate$sexFemale`), M1 or M2 values for /ʃ/ (M1: `{r} results$M1sh$sexFemale`; M2: `{r} results$M2sh$sexFemale`), intelligibility ratings (`{r} results$Int$sexFemale`), or naturalness ratings (`{r} results$Nat$sexFemale`).
+
+**Age Effects.** Older speakers were perceived to be less intelligible (`{r} results$Int$age`) and natural (`{r} results$Nat$age`), and demonstrated reduced M1 values for /s/ (`{r} results$M1s$age`) in the Before Sensors time point, after adjusting for group, sex, and articulation rate. In contrast, age did not robustly impact articulation rate (`{r} results$articRate$age`), AAVS (`{r} results$AAVS$age`), M1 for /ʃ/ (`{r} results$M1sh$age`), or M2 measures (/s/: `{r} results$M2s$age`; /ʃ/: `{r} results$M2sh$age`).
+
+**Trial Order Effects.** For the perceptual measures, trial order had no robust impact on listeners’ intelligibility ratings (`{r} results$Int$trial_number`). However, listeners systematically rated samples as less natural the later they were presented in the perceptual experiment (`{r} results$Nat$trial_number`). This tendency was consistent across both groups, regardless of the speaker’s sex or age.
+
+## Figures
+
+### Figure S1
+
+:::: {#suppfig-rawData}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+##| label: fig-articRate
+##| fig-cap: Main findings for articulation rate.
+
+knitr::include_graphics(path = "Figures/SupFig_rawData.png")
+
+```
+
+::: {style="text-align: left"}
+*Note*. The raw data for each participant across all three time points (left panel), between Before Sensors and With Sensors (middle panel), and between Before Sensors and After Sensors (right panel).
+:::
+
+Individual raw data across the target measures.
+::::
+
+\newpage
+
+## Tables
+
+### Table S1
+
+::: {#supptbl-PDspeakerDemo}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_Speakers with PD Demographics.html")
+```
+
+Speaker demographics for the speakers with Parkinson's disease.
+:::
+
+\newpage
+
+### Table S2
+
+::: {#supptbl-controlSpeakerDemo}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_Speakers without PD Demographics.html")
+```
+
+Speakers demographics for the control speakers.
+:::
+
+\newpage
+
+### Table S3
+
+::: {#supptbl-listenerDemo}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+# Load necessary libraries
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_listener_demo.html")
+
+```
+
+Listener demographics.
+:::
+
+\newpage
+
+### Table S4
+
+::: {#supptbl-articRateAAVS}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_articRateAAVS.html")
+
+```
+
+*Note.* PwPD = People with Parkinson’s disease
+:::
+
+<!--# Fix the pd to be % in these supplemental tables. -->
+
+\newpage
+
+### Table S5
+
+::: {#supptbl-M1}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_M1.html")
+
+```
+
+*Note.* PwPD = People with Parkinson’s disease
+:::
+
+\newpage
+
+### Table S6
+
+::: {#supptbl-M2}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_M2.html")
+
+```
+
+*Note.* PwPD = People with Parkinson’s disease
+:::
+
+\newpage
+
+### Table S7
+
+::: {#supptbl-perceptual}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+library(htmltools)
+
+htmltools::includeHTML("Tables/SupTbl_IntNat.html")
+```
+
+*Note.* PwPD = People with Parkinson’s disease
+:::

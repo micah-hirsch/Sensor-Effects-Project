@@ -1,4 +1,5 @@
 Version: 1.0
+ProjectId: 23a0e6ff-5ba3-433f-85d3-3611295438f3
 
 RestoreWorkspace: Default
 SaveWorkspace: Default
@@ -11,3 +12,5 @@ Encoding: UTF-8
 
 RnwWeave: Sweave
 LaTeX: pdfLaTeX
+
+ZoteroLibraries: "Sensor Effects Manuscript"

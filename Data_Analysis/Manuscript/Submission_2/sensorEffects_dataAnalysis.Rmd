@@ -1,0 +1,2900 @@
+---
+title: "Sensor Effects: Bayesian Data Analysis"
+Authors: Austin R. Thompson, Ph.D. & Micah E. Hirsch, Ph.D.
+---
+
+# Packages
+```{r}
+library(tidyverse)    # install.packages("tidyverse")
+library(rio)          # install.packages("rio")
+library(performance)  # install.packages("performance")
+library(emmeans)      # install.packages("emmeans")
+library(ggrepel)      # install.packages("ggrepel")
+library(extraDistr)   # install.packages("extraDistr")
+library(HDInterval)   # install.packages("HDInterval")
+library(tidybayes)    # install.packages("tidybayes")
+library(bayesplot)    # install.packages("bayesplot")
+library(modelr)       # install.packages("modelr")
+library(broom.mixed)  # install.packages("broom.mixed")
+library(brms)         # install.packages("brms")
+library(ggthemes)     # install.packages("ggthemes")
+library(patchwork)    # install.packages("patchwork")
+library(weights)      # install.packages("weights")
+theme_set(theme_minimal())
+
+# Creating a theme function used for visualizations
+theme_clean <- function() {
+  theme_minimal(base_family = "Arial") +
+    theme(panel.grid.minor = element_blank(),
+          plot.title = element_text(face = "bold"),
+          axis.title = element_text(face = "bold"),
+          strip.text = element_text(face = "bold", size = rel(1), hjust = 0),
+          strip.background = element_rect(fill = "grey80", color = NA),
+          legend.title = element_text(face = "bold"))
+}
+
+# Setting the color palette to be used in the figures
+my_pal <- c("#550527", "#82B12F", "#FAA613")
+```
+
+# 01. Articulation Rate
+```{r}
+data_articRate <- rio::import("../../Data/cleanData/data_articulationRate.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    phrase = factor(phrase),
+    seg_type = factor(seg_type)
+  ) %>%
+  # Filtering just the initial segments
+  dplyr::filter(seg_type == "initial")
+
+# Adding new components from this chunk to the working data list
+workingData_articRate <- list(
+  data = data_articRate
+)
+```
+
+*Reliability*
+```{r}
+relData_articRate <- rio::import("../../Data/cleanData/data_articulationRate.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point),
+    phrase = factor(phrase),
+    seg_type = factor(seg_type)
+  ) %>%
+  # pivoting the seg_type to wider
+  tidyr::pivot_wider(names_from = "seg_type", values_from = artic_rate)
+
+# Inter-measurer Reliability
+interRel_articRate <- relData_articRate %>%
+  dplyr::filter(!is.na(inter)) # filter rows that only have inter-rater data
+
+interRel_articRate_mae <- interRel_articRate %>%
+  dplyr::mutate(error = abs(initial-inter)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+  
+
+interRel_articRate_icc <- irr::icc(interRel_articRate %>%
+                                     dplyr::select(initial, inter),
+                                   model = "twoway",
+                                   type = "agreement",
+                                   unit = "average")
+
+interRel_articRate_cor <- stats::cor.test(interRel_articRate$initial,
+                                          interRel_articRate$inter,
+                                          method = "pearson")
+
+# Intra-measurer Reliability
+intraRel_articRate <- relData_articRate %>%
+  dplyr::filter(!is.na(intra)) # filter rows that only have intra-rater data
+
+intraRel_articRate_mae <- intraRel_articRate %>%
+  dplyr::mutate(error = abs(initial-intra)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+
+intraRel_articRate_icc <- irr::icc(intraRel_articRate %>%
+                                     dplyr::select(initial, intra),
+                                   model = "twoway",
+                                   type = "agreement",
+                                   unit = "average")
+
+intraRel_articRate_cor <- stats::cor.test(intraRel_articRate$initial,
+                                          intraRel_articRate$intra,
+                                          method = "pearson")
+
+# Adding new components from this chunk to the working data list
+workingData_articRate <- c(workingData_articRate, list(
+  # Saving the inter-measurer reliability objects to the workingData object
+  interRel = interRel_articRate_cor,
+  interRel_icc = interRel_articRate_icc,
+  interRel_mae = interRel_articRate_mae,
+  # Saving the intra-measurer reliability objects to the workingData object
+  intraRel = intraRel_articRate_cor,
+  intraRel_icc = intraRel_articRate_icc,
+  intraRel_mae = intraRel_articRate_mae
+))
+
+# Remove unneeded objects
+rm(relData_articRate,
+  interRel_articRate_cor,
+  interRel_articRate_icc,
+  interRel_articRate_mae,
+  intraRel_articRate_cor,
+  intraRel_articRate_icc,
+  intraRel_articRate_mae,
+  interRel_articRate,
+  intraRel_articRate)
+```
+
+*Prep model data*
+```{r}
+# Transforming the data for the model
+modelData_articRate <- workingData_articRate$data %>%
+  dplyr::filter(seg_type == "initial")
+  
+
+# Checking the distribution of the DV
+hist(modelData_articRate$artic_rate)
+
+data_modelData_articRate <- modelData_articRate %>%
+  dplyr::select(speaker_id,
+                group,
+                sex,
+                age,
+                time_point,
+                phrase,
+                articRate = artic_rate) %>%
+  dplyr::mutate(
+    time_point = factor(time_point, levels = c("before", "sensors", "after"))
+  )
+
+performance::check_distribution(data_modelData_articRate$articRate)
+
+# Taking out the trash
+rm(epsilon, modelData_articRate)
+
+# Adding new components from this chunk to the working data list
+workingData_articRate <- c(workingData_articRate, list(
+  modelData = data_modelData_articRate
+))
+```
+
+*Priors*
+First, we need to figure out the model parameters
+```{r}
+
+modelFormula_articRate <-
+  articRate ~ time_point * group + sex + age +
+                                    (1 | speaker_id / phrase) # random intercepts for speaker
+                                    #(1 | phrase)
+
+brms::get_prior(
+  modelFormula_articRate, 
+  data = data_modelData_articRate, 
+  family = gaussian())
+```
+Now we can specify weakly informative priors.
+```{r}
+prior_articRate <- c(
+  prior(normal(0, 100), class = Intercept), # start with larger value - 10
+  prior(normal(0, 100), class = b),
+  prior(cauchy(0, 100), class = sd), # variance
+  prior(cauchy(0, 100), class = sigma)
+)
+```
+
+*Building the model*
+```{r}
+model_articRate <- brms::brm(
+  formula = modelFormula_articRate,
+  data = data_modelData_articRate,
+  prior = prior_articRate,
+  family = gaussian(),
+  chains = 4,
+  cores = 4,
+  iter = 4000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  file = "Models/brms_articRate.rds",
+  file_refit = "on_change"
+)
+
+# Calculating the residual variance
+if (file.exists("Models/variance_articRate.rds") == T) {
+  variance_articRate <- base::readRDS(file = "Models/variance_articRate.rds")
+} else {
+  variance_articRate <- insight::get_variance(model_articRate)
+  base::saveRDS(variance_articRate, file = "Models/variance_articRate.rds")
+}
+
+
+```
+
+*Model Diagnostics*
+```{r}
+# Assess chain mixing
+plot_chainMix_articRate <- base::plot(model_articRate, ask=FALSE)
+
+# Posterior predictive check
+plot_ppCheck_articRate <- brms::pp_check(model_articRate, ndraws = 1000)
+
+# Plot conditional effects
+plot_conditionalEffects_articRate <- base::plot(conditional_effects(model_articRate), ask = FALSE)
+
+# Interval Estimations
+data_posterior_articRate <- as.matrix(model_articRate) %>%
+  as.data.frame()
+
+plot_intervalEst_articRate <- mcmc_areas(
+  data_posterior_articRate,
+  pars = fixed_effects <- data_posterior_articRate %>%
+    as.data.frame() %>%
+    dplyr::select(starts_with("b_")) %>%
+    colnames(),
+  # arbitrary threshold for shading probability mass
+  prob = 0.95
+) 
+
+```
+
+*Model Summary*
+```{r}
+# Probability of direction (pd)
+pd_articRate <- bayestestR::p_direction(model_articRate) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_articRate <- tidy(model_articRate) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_articRate, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = (estimate),
+    l_95_CI_natScale = (l_95_CI),
+    u_95_CI_natScale = (u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_articRate)
+
+# Adding new components from this chunk to the working data list
+workingData_articRate <- c(workingData_articRate, list(
+  modelSummary = modelSummary_articRate
+))
+```
+
+*Pairwise Comparisons*
+```{r}
+
+# Probability of direction (pd)
+pd_emmeans_articRate <- bayestestR::p_direction(
+  model_articRate %>%
+    emmeans::emmeans( ~ time_point |
+                        group, epred = TRUE, re_formula = NA, ) %>%
+    emmeans::contrast(method = "revpairwise")
+) |>
+  as.data.frame() %>%
+  dplyr::bind_rows(
+    .,
+    # Compute the interaction contrast (difference in contrasts between groups)
+    bayestestR::p_direction(
+      model_articRate %>%
+        emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+        emmeans::contrast(interaction = "revpairwise")
+    ) %>%
+      dplyr::rename(group = group_revpairwise,
+                    contrast = time_point_revpairwise)
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+emmeans_articRate <-
+  dplyr::bind_rows(
+    model_articRate %>%
+      emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(method = "revpairwise") %>%
+      tidy(),
+    model_articRate %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(interaction = "revpairwise") %>%
+      tidy() %>%
+      dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise),
+  ) %>%
+  dplyr::rename(l_95_HPD = lower.HPD, u_95_HPD = upper.HPD) %>%
+  dplyr::mutate(
+    order = row_number(),
+    measure = "articRate"
+  ) %>%
+  base::merge(., pd_emmeans_articRate) |>
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl",
+      TRUE ~ group
+    ),
+    robust = case_when(as.integer(!(
+      l_95_HPD <= 0 & u_95_HPD > 0
+    )) == 1 & pd > .95 ~ "robust", TRUE ~ "not robust"),
+    writeUp = paste0(
+      "β=",
+      rd(estimate, digits = 2),
+      ", 95% HPD Interval = [",
+      rd(l_95_HPD, digits = 2),
+      ", ",
+      rd(u_95_HPD, digits = 2),
+      "]"
+    )
+  )
+
+# Adding new components from this chunk to the working data list
+workingData_articRate <- c(workingData_articRate, list(
+  pairwise = emmeans_articRate
+))
+
+rm(pd_emmeans_articRate,
+   emmeans_articRate)
+```
+
+*Save working data*
+```{r}
+
+base::saveRDS(workingData_articRate,
+              file = "workingData/data_articRate.RDS")
+
+rm(data_modelData_articRate,
+   data_posterior_articRate,
+   model_articRate,
+   modelSummary_articRate,
+   plot_chainMix_articRate,
+   plot_conditionalEffects_articRate,
+   plot_intervalEst_articRate,
+   plot_ppCheck_articRate,
+   prior_articRate,
+   variance_articRate,
+   modelFormula_articRate,
+   fixed_effects)
+
+```
+# 02. AAVS
+Articulatory Acoustic Vowel Space
+```{r}
+data_AAVS <- rio::import("../../Data/cleanData/data_AAVS.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type)
+  ) %>%
+  # Filtering just the initial segments
+  dplyr::filter(seg_type == "initial") %>%
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_AAVS <- list(
+  data = data_AAVS
+)
+```
+
+*Reliability*
+```{r}
+relData_AAVS <- rio::import("../../Data/cleanData/data_AAVS.csv") %>%
+  dplyr::select(!duration) %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point),
+    seg_type = factor(seg_type)
+  ) %>%
+  # pivoting the seg_type to wider
+  tidyr::pivot_wider(names_from = "seg_type", values_from = AAVS)
+
+# Inter-measurer Reliability
+interRel_AAVS <- relData_AAVS %>%
+  dplyr::filter(!is.na(inter)) # filter rows that only have inter-rater data
+
+interRel_AAVS_mae <- interRel_AAVS %>%
+  dplyr::mutate(error = abs(initial-inter)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+  
+
+interRel_AAVS_icc <- irr::icc(interRel_AAVS %>%
+                                     dplyr::select(initial, inter),
+                                   model = "twoway",
+                                   type = "agreement",
+                                   unit = "average")
+
+interRel_AAVS_cor <- stats::cor.test(interRel_AAVS$initial,
+                                          interRel_AAVS$inter,
+                                          method = "pearson")
+
+# Intra-measurer Reliability
+intraRel_AAVS <- relData_AAVS %>%
+  dplyr::filter(!is.na(intra)) # filter rows that only have intra-rater data
+
+intraRel_AAVS_mae <- intraRel_AAVS %>%
+  dplyr::mutate(error = abs(initial-intra)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+
+intraRel_AAVS_icc <- irr::icc(intraRel_AAVS %>%
+                                     dplyr::select(initial, intra),
+                                   model = "twoway",
+                                   type = "agreement",
+                                   unit = "average")
+
+intraRel_AAVS_cor <- stats::cor.test(intraRel_AAVS$initial,
+                                          intraRel_AAVS$intra,
+                                          method = "pearson")
+
+# Adding new components from this chunk to the working data list
+workingData_AAVS <- c(workingData_AAVS, list(
+  # Saving the inter-measurer reliability objects to the workingData object
+  interRel = interRel_AAVS_cor,
+  interRel_icc = interRel_AAVS_icc,
+  interRel_mae = interRel_AAVS_mae,
+  # Saving the intra-measurer reliability objects to the workingData object
+  intraRel = intraRel_AAVS_cor,
+  intraRel_icc = intraRel_AAVS_icc,
+  intraRel_mae = intraRel_AAVS_mae
+))
+
+# Remove unneeded objects
+rm(relData_AAVS,
+  interRel_AAVS_cor,
+  interRel_AAVS_icc,
+  interRel_AAVS_mae,
+  intraRel_AAVS_cor,
+  intraRel_AAVS_icc,
+  intraRel_AAVS_mae)
+```
+
+*Prep model data*
+```{r}
+# Transforming the data for the model
+modelData_AAVS <- workingData_AAVS$data %>%
+  dplyr::filter(seg_type == "initial")
+  
+
+# Checking the distribution of the DV
+hist(modelData_AAVS$AAVS)
+
+data_modelData_AAVS <- modelData_AAVS %>%
+  dplyr::select(speaker_id,
+                group,
+                sex,
+                age,
+                time_point,
+                artic_rate,
+                AAVS) %>%
+  dplyr::mutate(
+    time_point = factor(time_point, levels = c("before", "sensors", "after"))
+  )
+
+performance::check_distribution(data_modelData_AAVS$AAVS)
+
+# Taking out the trash
+rm(modelData_AAVS)
+
+# Adding new components from this chunk to the working data list
+workingData_AAVS <- c(workingData_AAVS, list(
+  modelData = data_modelData_AAVS
+))
+```
+
+*Priors*
+First, we need to figure out the model parameters
+```{r}
+
+modelFormula_AAVS <-
+  AAVS ~ time_point * group + sex + age + artic_rate +
+  (1 | speaker_id) # random intercepts for speaker
+#(1 | phrase)
+
+brms::get_prior(modelFormula_AAVS, data = data_modelData_AAVS, family = lognormal())
+```
+Now we can specify weakly informative priors.
+```{r}
+prior_AAVS <- c(
+  prior(normal(0, 100), class = Intercept),
+  prior(normal(0, 100), class = b),
+  prior(cauchy(0, 100), class = sd),
+  prior(cauchy(0, 100), class = sigma)
+)
+```
+
+*Building the model*
+```{r}
+model_AAVS <- brms::brm(
+  formula = modelFormula_AAVS,
+  data = data_modelData_AAVS,
+  prior = prior_AAVS,
+  family = lognormal(),
+  chains = 4,
+  cores = 4,
+  iter = 4000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  file = "Models/brms_AAVS.rds",
+  file_refit = "on_change"
+)
+
+# Calculating the residual variance
+if (file.exists("Models/variance_AAVS.rds") == T) {
+  variance_AAVS <- base::readRDS(file = "Models/variance_AAVS.rds")
+} else {
+  variance_AAVS <- insight::get_variance(model_AAVS)
+  base::saveRDS(variance_AAVS, file = "Models/variance_AAVS.rds")
+}
+```
+
+*Model Diagnostics*
+```{r}
+# Assess chain mixing
+plot_chainMix_AAVS <- base::plot(model_AAVS, ask=FALSE)
+
+# Posterior predictive check
+plot_ppCheck_AAVS <- brms::pp_check(model_AAVS, ndraws = 1000)
+
+# Plot conditional effects
+plot_conditionalEffects_AAVS <- base::plot(conditional_effects(model_AAVS), ask = FALSE)
+
+# Interval Estimations
+data_posterior_AAVS <- as.matrix(model_AAVS) %>%
+  as.data.frame()
+
+plot_intervalEst_AAVS <- mcmc_areas(
+  data_posterior_AAVS,
+  pars = fixed_effects <- data_posterior_AAVS %>%
+    as.data.frame() %>%
+    dplyr::select(starts_with("b_")) %>%
+    colnames(),
+  # arbitrary threshold for shading probability mass
+  prob = 0.95
+) 
+
+```
+
+*Model Summary*
+```{r}
+# Probability of direction (pd)
+pd_AAVS <- bayestestR::p_direction(model_AAVS) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_AAVS <- tidy(model_AAVS) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_AAVS, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = exp(estimate),
+    l_95_CI_natScale = exp(l_95_CI),
+    u_95_CI_natScale = exp(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_AAVS)
+
+# Adding new components from this chunk to the working data list
+workingData_AAVS <- c(workingData_AAVS, list(
+  modelSummary = modelSummary_AAVS
+))
+```
+
+*Pairwise Comparisons*
+```{r}
+
+# Probability of direction (pd)
+pd_emmeans_AAVS <- bayestestR::p_direction(
+  model_AAVS %>%
+    emmeans::emmeans( ~ time_point |
+                        group, epred = TRUE, re_formula = NA, ) %>%
+    emmeans::contrast(method = "revpairwise")
+) |>
+  as.data.frame() %>%
+  dplyr::bind_rows(
+    .,
+    # Compute the interaction contrast (difference in contrasts between groups)
+    bayestestR::p_direction(
+      model_AAVS %>%
+        emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+        emmeans::contrast(interaction = "revpairwise")
+    ) %>%
+      dplyr::rename(group = group_revpairwise,
+                    contrast = time_point_revpairwise)
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+emmeans_AAVS <-
+  dplyr::bind_rows(
+    model_AAVS %>%
+      emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(method = "revpairwise") %>%
+      tidy(),
+    model_AAVS %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(interaction = "revpairwise") %>%
+      tidy() %>%
+      dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise),
+  ) %>%
+  dplyr::rename(l_95_HPD = lower.HPD, u_95_HPD = upper.HPD) %>%
+  dplyr::mutate(
+    order = row_number(),
+    measure = "AAVS"
+  ) %>%
+  base::merge(., pd_emmeans_AAVS) |>
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl",
+      TRUE ~ group
+    ),
+    robust = case_when(as.integer(!(
+      l_95_HPD <= 0 & u_95_HPD > 0
+    )) == 1 & pd > .95 ~ "robust", TRUE ~ "not robust"),
+    writeUp = paste0(
+      "β=",
+      rd(estimate, digits = 2),
+      ", 95% HPD Interval = [",
+      rd(l_95_HPD, digits = 2),
+      ", ",
+      rd(u_95_HPD, digits = 2),
+      "]"
+    )
+  )
+
+rm(pd_emmeans_AAVS)
+
+# Adding new components from this chunk to the working data list
+workingData_AAVS <- c(workingData_AAVS, list(
+  pairwise = emmeans_AAVS
+))
+```
+
+*Save working data*
+```{r}
+
+base::saveRDS(workingData_AAVS,
+              file = "workingData/data_AAVS.RDS")
+
+rm(data_modelData_AAVS,
+   data_posterior_AAVS,
+   model_AAVS,
+   modelSummary_AAVS,
+   plot_chainMix_AAVS,
+   plot_conditionalEffects_AAVS,
+   plot_intervalEst_AAVS,
+   plot_ppCheck_AAVS,
+   prior_AAVS,
+   variance_AAVS,
+   modelFormula_AAVS,
+   fixed_effects,
+   emmeans_AAVS,
+   interRel_AAVS,
+   intraRel_AAVS)
+
+```
+
+# M1
+First spectral moment (Mean; M1) for "s" and "sh".
+```{r}
+data_M1 <- rio::import("../../Data/cleanData/data_consonantMeasures.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type),
+    consonant = factor(consonant)
+  ) %>%
+  # Filtering just the initial segments
+  dplyr::filter(seg_type == "initial") %>%
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_M1 <- list(
+  data = data_M1
+)
+```
+
+*Reliability*
+```{r}
+relData_M1 <- rio::import("../../Data/cleanData/data_consonantMeasures.csv") %>%
+  dplyr::select(!c(onset, offset, m2, m1_p, m2_p)) %>% # removing columns we don't need
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type),
+    consonant = factor(consonant)
+  ) %>%
+  dplyr::group_by(speaker_id, group, sex, time_point, seg_type, consonant) %>%
+  dplyr::summarise(m1 = mean(m1, na.rm = T)) %>%
+  dplyr::ungroup() %>%
+  # pivoting the seg_type to wider
+  tidyr::pivot_wider(names_from = "seg_type", values_from = m1)
+
+
+# Inter-measurer Reliability
+interRel_M1 <- relData_M1 %>%
+  dplyr::filter(!is.na(inter)) # filter rows that only have inter-rater data
+
+interRel_M1_mae <- interRel_M1 %>%
+  dplyr::mutate(error = abs(initial-inter)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+  
+
+interRel_M1_icc <- irr::icc(interRel_M1 %>%
+                                     dplyr::select(initial, inter),
+                                   model = "twoway",
+                                   type = "agreement",
+                                   unit = "average")
+
+interRel_M1_cor <- stats::cor.test(interRel_M1$initial,
+                                          interRel_M1$inter,
+                                          method = "pearson")
+
+# Intra-measurer Reliability
+intraRel_M1 <- relData_M1 %>%
+  dplyr::filter(!is.na(intra)) # filter rows that only have intra-rater data
+
+intraRel_M1_mae <- intraRel_M1 %>%
+  dplyr::mutate(error = abs(initial-intra)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+
+intraRel_M1_icc <- irr::icc(intraRel_M1 %>%
+                                     dplyr::select(initial, intra),
+                                   model = "twoway",
+                                   type = "agreement",
+                                   unit = "average")
+
+intraRel_M1_cor <- stats::cor.test(intraRel_M1$initial,
+                                          intraRel_M1$intra,
+                                          method = "pearson")
+
+# Adding new components from this chunk to the working data list
+workingData_M1 <- c(workingData_M1, list(
+  # Saving the inter-measurer reliability objects to the workingData object
+  interRel = interRel_M1_cor,
+  interRel_icc = interRel_M1_icc,
+  interRel_mae = interRel_M1_mae,
+  # Saving the intra-measurer reliability objects to the workingData object
+  intraRel = intraRel_M1_cor,
+  intraRel_icc = intraRel_M1_icc,
+  intraRel_mae = intraRel_M1_mae
+))
+
+# Remove unneeded objects
+rm(relData_M1,
+  interRel_M1_cor,
+  interRel_M1_icc,
+  interRel_M1_mae,
+  intraRel_M1_cor,
+  intraRel_M1_icc,
+  intraRel_M1_mae)
+```
+## 03. "s"
+```{r}
+data_M1s <- rio::import("../../Data/cleanData/data_consonantMeasures.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type),
+    consonant = factor(consonant)
+  ) %>%
+  # Filtering just the "s" consonant
+  dplyr::filter(consonant == "s") %>%
+  # Filtering just the initial segments
+  dplyr::filter(seg_type == "initial") %>%
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_M1s <- list(
+  data = data_M1s
+)
+```
+
+*Prep model data*
+```{r}
+# Transforming the data for the model
+modelData_M1s <- workingData_M1s$data %>%
+  dplyr::filter(seg_type == "initial")
+  
+
+# Checking the distribution of the DV
+hist(modelData_M1s$m1)
+
+data_modelData_M1s <- modelData_M1s %>%
+  dplyr::select(speaker_id,
+                group,
+                sex,
+                age,
+                time_point,
+                artic_rate,
+                M1s = m1) %>%
+  dplyr::mutate(
+    time_point = factor(time_point, levels = c("before", "sensors", "after"))
+  )
+
+performance::check_distribution(data_modelData_M1s$M1s)
+
+# Taking out the trash
+rm(modelData_M1s)
+
+# Adding new components from this chunk to the working data list
+workingData_M1s <- c(workingData_M1s, list(
+  modelData = data_modelData_M1s
+))
+```
+
+*Priors*
+First, we need to figure out the model parameters
+```{r}
+
+modelFormula_M1s <-
+  M1s ~ time_point * group + sex + age + artic_rate +
+  (1 | speaker_id) # random intercepts for speaker
+
+
+brms::get_prior(modelFormula_M1s, data = data_modelData_M1s, family = gaussian())
+```
+Now we can specify weakly informative priors.
+```{r}
+prior_M1s <- c(
+  prior(normal(0, 100), class = Intercept),
+  prior(normal(0, 100), class = b),
+  prior(cauchy(0, 100), class = sd), # variance
+  prior(cauchy(0, 100), class = sigma)
+)
+```
+
+*Building the model*
+```{r}
+model_M1s <- brms::brm(
+  formula = modelFormula_M1s,
+  data = data_modelData_M1s,
+  prior = prior_M1s,
+  family = gaussian(),
+  chains = 4,
+  cores = 4,
+  iter = 4000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  file = "Models/brms_M1s.rds",
+  file_refit = "on_change"
+)
+
+# Calculating the residual variance
+if (file.exists("Models/variance_M1s.rds") == T) {
+  variance_M1s <- base::readRDS(file = "Models/variance_M1s.rds")
+} else {
+  variance_M1s <- insight::get_variance(model_M1s)
+  base::saveRDS(variance_M1s, file = "Models/variance_M1s.rds")
+}
+```
+
+*Model Diagnostics*
+```{r}
+# Assess chain mixing
+plot_chainMix_M1s <- base::plot(model_M1s, ask=FALSE)
+
+# Posterior predictive check
+plot_ppCheck_M1s <- brms::pp_check(model_M1s, ndraws = 1000)
+
+# Plot conditional effects
+plot_conditionalEffects_M1s <- base::plot(conditional_effects(model_M1s), ask = FALSE)
+
+# Interval Estimations
+data_posterior_M1s <- as.matrix(model_M1s) %>%
+  as.data.frame()
+
+plot_intervalEst_M1s <- mcmc_areas(
+  data_posterior_M1s,
+  pars = fixed_effects <- data_posterior_M1s %>%
+    as.data.frame() %>%
+    dplyr::select(starts_with("b_")) %>%
+    colnames(),
+  # arbitrary threshold for shading probability mass
+  prob = 0.95
+) 
+
+```
+
+*Model Summary*
+```{r}
+# Probability of direction (pd)
+pd_M1s <- bayestestR::p_direction(model_M1s) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_M1s <- tidy(model_M1s) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_M1s, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = (estimate),
+    l_95_CI_natScale = (l_95_CI),
+    u_95_CI_natScale = (u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_M1s)
+
+# Adding new components from this chunk to the working data list
+workingData_M1s <- c(workingData_M1s, list(
+  modelSummary = modelSummary_M1s
+))
+```
+
+*Pairwise Comparisons*
+```{r}
+
+# Probability of direction (pd)
+pd_emmeans_M1s <- bayestestR::p_direction(
+  model_M1s %>%
+    emmeans::emmeans(~ time_point |
+                       group, epred = TRUE, re_formula = NA, ) %>%
+    emmeans::contrast(method = "revpairwise")
+) |>
+  as.data.frame() %>%
+  dplyr::bind_rows(
+    .,
+    # Compute the interaction contrast (difference in contrasts between groups)
+    bayestestR::p_direction(
+      model_M1s %>%
+        emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA) %>%
+        emmeans::contrast(interaction = "revpairwise")
+    ) %>%
+      dplyr::rename(group = group_revpairwise, contrast = time_point_revpairwise)
+  ) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      group == "Control" ~ "Control",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl"
+    )
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+
+emmeans_M1s <-
+  dplyr::bind_rows(
+    model_M1s %>%
+      emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(method = "revpairwise") %>%
+      tidy(),
+    model_M1s %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(interaction = "revpairwise") %>%
+      tidy() %>%
+      dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise),
+  ) %>%
+  dplyr::rename(l_95_HPD = lower.HPD, u_95_HPD = upper.HPD) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl",
+      TRUE ~ group
+    ),
+    order = row_number(),
+    measure = "M1s"
+  ) %>%
+  base::merge(., pd_emmeans_M1s) |>
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    robust = case_when(as.integer(!(
+      l_95_HPD <= 0 & u_95_HPD > 0
+    )) == 1 & pd > .95 ~ "robust", TRUE ~ "not robust"),
+    writeUp = paste0(
+      "β=",
+      rd(estimate, digits = 2),
+      ", 95% HPD Interval = [",
+      rd(l_95_HPD, digits = 2),
+      ", ",
+      rd(u_95_HPD, digits = 2),
+      "]"
+    )
+  )
+
+rm(pd_emmeans_M1s)
+
+# Adding new components from this chunk to the working data list
+workingData_M1s <- c(workingData_M1s, list(
+  pairwise = emmeans_M1s
+))
+```
+
+*Save working data*
+```{r}
+
+base::saveRDS(workingData_M1s,
+              file = "workingData/data_M1s.RDS")
+
+```
+## 04. "sh"
+```{r}
+data_M1sh <- rio::import("../../Data/cleanData/data_consonantMeasures.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type),
+    consonant = factor(consonant)
+  ) %>%
+  # Filtering just the "s" consonant
+  dplyr::filter(consonant == "sh") %>%
+  # Filtering just the initial segments
+  dplyr::filter(seg_type == "initial")  %>%
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_M1sh <- list(
+  data = data_M1sh
+)
+```
+
+*Prep model data*
+```{r}
+# Transforming the data for the model
+modelData_M1sh <- workingData_M1sh$data %>%
+  dplyr::filter(seg_type == "initial")
+  
+
+# Checking the distribution of the DV
+hist(modelData_M1sh$m1)
+
+data_modelData_M1sh <- modelData_M1sh %>%
+  dplyr::select(speaker_id,
+                group,
+                sex,
+                age,
+                time_point,
+                artic_rate,
+                M1sh = m1) %>%
+  dplyr::mutate(
+    time_point = factor(time_point, levels = c("before", "sensors", "after"))
+  )
+
+performance::check_distribution(data_modelData_M1sh$M1sh)
+
+# Taking out the trash
+rm(modelData_M1sh)
+
+# Adding new components from this chunk to the working data list
+workingData_M1sh <- c(workingData_M1sh, list(
+  modelData = data_modelData_M1sh
+))
+```
+
+*Priors*
+First, we need to figure out the model parameters
+```{r}
+
+modelFormula_M1sh <-
+  M1sh ~ time_point * group + sex + age + artic_rate +
+  (1 | speaker_id) # random intercepts for speaker
+#(1 | phrase)
+
+brms::get_prior(modelFormula_M1sh, data = data_modelData_M1sh, family = gaussian())
+```
+Now we can specify weakly informative priors.
+```{r}
+prior_M1sh <- c(
+  prior(normal(0, 100), class = Intercept),
+  prior(normal(0, 100), class = b),
+  prior(cauchy(0, 100), class = sd), # variance
+  prior(cauchy(0, 100), class = sigma)
+)
+```
+
+*Building the model*
+```{r}
+model_M1sh <- brms::brm(
+  formula = modelFormula_M1sh,
+  data = data_modelData_M1sh,
+  prior = prior_M1sh,
+  family = gaussian(),
+  chains = 4,
+  cores = 4,
+  iter = 4000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  file = "Models/brms_M1sh.rds",
+  file_refit = "on_change"
+)
+
+# Calculating the residual variance
+if (file.exists("Models/variance_M1sh.rds") == T) {
+  variance_M1sh <- base::readRDS(file = "Models/variance_M1sh.rds")
+} else {
+  variance_M1sh <- insight::get_variance(model_M1sh)
+  base::saveRDS(variance_M1sh, file = "Models/variance_M1sh.rds")
+}
+```
+
+*Model Diagnostics*
+```{r}
+# Assess chain mixing
+plot_chainMix_M1sh <- base::plot(model_M1sh, ask=FALSE)
+
+# Posterior predictive check
+plot_ppCheck_M1sh <- brms::pp_check(model_M1sh, ndraws = 1000)
+
+# Plot conditional effects
+plot_conditionalEffects_M1sh <- base::plot(conditional_effects(model_M1sh), ask = FALSE)
+
+# Interval Estimations
+data_posterior_M1sh <- as.matrix(model_M1sh) %>%
+  as.data.frame()
+
+plot_intervalEst_M1sh <- mcmc_areas(
+  data_posterior_M1sh,
+  pars = fixed_effects <- data_posterior_M1sh %>%
+    as.data.frame() %>%
+    dplyr::select(starts_with("b_")) %>%
+    colnames(),
+  # arbitrary threshold for shading probability mass
+  prob = 0.95
+) 
+
+```
+
+*Model Summary*
+```{r}
+# Probability of direction (pd)
+pd_M1sh <- bayestestR::p_direction(model_M1sh) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_M1sh <- tidy(model_M1sh) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_M1sh, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = (estimate),
+    l_95_CI_natScale = (l_95_CI),
+    u_95_CI_natScale = (u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_M1sh)
+
+# Adding new components from this chunk to the working data list
+workingData_M1sh <- c(workingData_M1sh, list(
+  modelSummary = modelSummary_M1sh
+))
+```
+
+*Pairwise Comparisons*
+```{r}
+
+# Probability of direction (pd)
+pd_emmeans_M1sh <- bayestestR::p_direction(
+  model_M1sh %>%
+    emmeans::emmeans(~ time_point |
+                       group, epred = TRUE, re_formula = NA, ) %>%
+    emmeans::contrast(method = "revpairwise")
+) |>
+  as.data.frame() %>%
+  dplyr::bind_rows(
+    .,
+    # Compute the interaction contrast (difference in contrasts between groups)
+    bayestestR::p_direction(
+      model_M1sh %>%
+        emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA) %>%
+        emmeans::contrast(interaction = "revpairwise")
+    ) %>%
+      dplyr::rename(group = group_revpairwise, contrast = time_point_revpairwise)
+  ) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      group == "Control" ~ "Control",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl"
+    )
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+
+emmeans_M1sh <-
+  dplyr::bind_rows(
+    model_M1sh %>%
+      emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(method = "revpairwise") %>%
+      tidy(),
+    model_M1sh %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(interaction = "revpairwise") %>%
+      tidy() %>%
+      dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise),
+  ) %>%
+  dplyr::rename(l_95_HPD = lower.HPD, u_95_HPD = upper.HPD) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl",
+      TRUE ~ group
+    ),
+    order = row_number(),
+    measure = "M1sh"
+  ) %>%
+  base::merge(., pd_emmeans_M1sh) |>
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    robust = case_when(as.integer(!(
+      l_95_HPD <= 0 & u_95_HPD > 0
+    )) == 1 & pd > .95 ~ "robust", TRUE ~ "not robust"),
+    writeUp = paste0(
+      "β=",
+      rd(estimate, digits = 2),
+      ", 95% HPD Interval = [",
+      rd(l_95_HPD, digits = 2),
+      ", ",
+      rd(u_95_HPD, digits = 2),
+      "]"
+    )
+  )
+
+rm(pd_emmeans_M1sh)
+
+# Adding new components from this chunk to the working data list
+workingData_M1sh <- c(workingData_M1sh, list(
+  pairwise = emmeans_M1sh
+))
+```
+
+*Save working data*
+```{r}
+
+base::saveRDS(workingData_M1sh,
+              file = "workingData/data_M1sh.RDS")
+
+base::saveRDS(workingData_M1,
+              file = "workingData/data_M1.RDS")
+
+
+rm(data_modelData_M1s,
+   data_posterior_M1s,
+   model_M1s,
+   modelSummary_M1s,
+   plot_chainMix_M1s,
+   plot_conditionalEffects_M1s,
+   plot_intervalEst_M1s,
+   plot_ppCheck_M1s,
+   prior_M1s,
+   variance_M1s,
+   modelFormula_M1s,
+   fixed_effects,
+   emmeans_M1s,
+   interRel_M1,
+   intraRel_M1)
+
+rm(data_modelData_M1sh,
+   data_posterior_M1sh,
+   model_M1sh,
+   modelSummary_M1sh,
+   plot_chainMix_M1sh,
+   plot_conditionalEffects_M1sh,
+   plot_intervalEst_M1sh,
+   plot_ppCheck_M1sh,
+   prior_M1sh,
+   variance_M1sh,
+   modelFormula_M1sh,
+   emmeans_M1sh)
+
+```
+# M2
+First spectral moment (Mean; M1) for "s" and "sh".
+```{r}
+data_M2 <- rio::import("../../Data/cleanData/data_consonantMeasures.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type),
+    consonant = factor(consonant)
+  ) %>%
+  # Filtering just the initial segments
+  dplyr::filter(seg_type == "initial") %>%
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_M2 <- list(
+  data = data_M2
+)
+```
+*Reliability*
+```{r}
+relData_M2 <- rio::import("../../Data/cleanData/data_consonantMeasures.csv") %>%
+  dplyr::select(!c(onset, offset, m1, m1_p, m1_p)) %>% # removing columns we don't need
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type),
+    consonant = factor(consonant)
+  ) %>%
+  dplyr::group_by(speaker_id, group, sex, time_point, seg_type, consonant) %>%
+  dplyr::summarise(m2 = mean(m2, na.rm = T)) %>%
+  dplyr::ungroup() %>%
+  # pivoting the seg_type to wider
+  tidyr::pivot_wider(names_from = "seg_type", values_from = m2)
+
+
+# Inter-measurer Reliability
+interRel_M2 <- relData_M2 %>%
+  dplyr::filter(!is.na(inter)) # filter rows that only have inter-rater data
+
+interRel_M2_mae <- interRel_M2 %>%
+  dplyr::mutate(error = abs(initial - inter)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+
+
+interRel_M2_icc <- irr::icc(
+  interRel_M2 %>%
+    dplyr::select(initial, inter),
+  model = "twoway",
+  type = "agreement",
+  unit = "average"
+)
+
+interRel_M2_cor <- stats::cor.test(interRel_M2$initial, interRel_M2$inter, method = "pearson")
+
+# Intra-measurer Reliability
+intraRel_M2 <- relData_M2 %>%
+  dplyr::filter(!is.na(intra)) # filter rows that only have intra-rater data
+
+intraRel_M2_mae <- intraRel_M2 %>%
+  dplyr::mutate(error = abs(initial - intra)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+
+intraRel_M2_icc <- irr::icc(
+  intraRel_M2 %>%
+    dplyr::select(initial, intra),
+  model = "twoway",
+  type = "agreement",
+  unit = "average"
+)
+
+intraRel_M2_cor <- stats::cor.test(intraRel_M2$initial, intraRel_M2$intra, method = "pearson")
+
+# Adding new components from this chunk to the working data list
+workingData_M2 <- c(
+  workingData_M2,
+  list(
+    # Saving the inter-measurer reliability objects to the workingData object
+    interRel = interRel_M2_cor,
+    interRel_icc = interRel_M2_icc,
+    interRel_mae = interRel_M2_mae,
+    # Saving the intra-measurer reliability objects to the workingData object
+    intraRel = intraRel_M2_cor,
+    intraRel_icc = intraRel_M2_icc,
+    intraRel_mae = intraRel_M2_mae
+  )
+)
+
+# Remove unneeded objects
+rm(
+  relData_M2,
+  interRel_M2_cor,
+  interRel_M2_icc,
+  interRel_M2_mae,
+  intraRel_M2_cor,
+  intraRel_M2_icc,
+  intraRel_M2_mae
+)
+```
+## 05. "s"
+```{r}
+data_M2s <- rio::import("../../Data/cleanData/data_consonantMeasures.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type),
+    consonant = factor(consonant)
+  ) %>%
+  # Filtering just the "s" consonant
+  dplyr::filter(consonant == "s") %>%
+  # Filtering just the initial segments
+  dplyr::filter(seg_type == "initial") %>%
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_M2s <- list(
+  data = data_M2s
+)
+```
+
+*Prep model data*
+```{r}
+# Transforming the data for the model
+modelData_M2s <- workingData_M2s$data %>%
+  dplyr::filter(seg_type == "initial")
+  
+
+# Checking the distribution of the DV
+hist(modelData_M2s$m2)
+
+data_modelData_M2s <- modelData_M2s %>%
+  dplyr::select(speaker_id,
+                group,
+                sex,
+                age,
+                time_point,
+                artic_rate,
+                M2s = m2) %>%
+  dplyr::mutate(
+    time_point = factor(time_point, levels = c("before", "sensors", "after"))
+  )
+
+performance::check_distribution(data_modelData_M2s$M2s)
+
+# Taking out the trash
+rm(modelData_M2s)
+
+# Adding new components from this chunk to the working data list
+workingData_M2s <- c(workingData_M2s, list(
+  modelData = data_modelData_M2s
+))
+```
+
+*Priors*
+First, we need to figure out the model parameters
+```{r}
+
+modelFormula_M2s <-
+  M2s ~ time_point * group + sex + age + artic_rate +
+  (1 | speaker_id) # random intercepts for speaker
+#(1 | phrase)
+
+brms::get_prior(modelFormula_M2s, data = data_modelData_M2s, family = gaussian())
+```
+Now we can specify weakly informative priors.
+```{r}
+prior_M2s <- c(
+  prior(normal(0, 100), class = Intercept),
+  prior(normal(0, 100), class = b),
+  prior(cauchy(0, 100), class = sd), # variance
+  prior(cauchy(0, 100), class = sigma)
+)
+```
+
+*Building the model*
+```{r}
+model_M2s <- brms::brm(
+  formula = modelFormula_M2s,
+  data = data_modelData_M2s,
+  prior = prior_M2s,
+  family = gaussian(),
+  chains = 4,
+  cores = 4,
+  iter = 4000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  file = "Models/brms_M2s.rds",
+  file_refit = "on_change"
+)
+
+# Calculating the residual variance
+if (file.exists("Models/variance_M2s.rds") == T) {
+  variance_M2s <- base::readRDS(file = "Models/variance_M2s.rds")
+} else {
+  variance_M2s <- insight::get_variance(model_M2s)
+  base::saveRDS(variance_M2s, file = "Models/variance_M2s.rds")
+}
+```
+
+*Model Diagnostics*
+```{r}
+# Assess chain mixing
+plot_chainMix_M2s <- base::plot(model_M2s, ask=FALSE)
+
+# Posterior predictive check
+plot_ppCheck_M2s <- brms::pp_check(model_M2s, ndraws = 1000)
+
+# Plot conditional effects
+plot_conditionalEffects_M2s <- base::plot(conditional_effects(model_M2s), ask = FALSE)
+
+# Interval Estimations
+data_posterior_M2s <- as.matrix(model_M2s) %>%
+  as.data.frame()
+
+plot_intervalEst_M2s <- mcmc_areas(
+  data_posterior_M2s,
+  pars = fixed_effects <- data_posterior_M2s %>%
+    as.data.frame() %>%
+    dplyr::select(starts_with("b_")) %>%
+    colnames(),
+  # arbitrary threshold for shading probability mass
+  prob = 0.95
+) 
+
+```
+
+*Model Summary*
+```{r}
+# Probability of direction (pd)
+pd_M2s <- bayestestR::p_direction(model_M2s) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_M2s <- tidy(model_M2s) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_M2s, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = (estimate),
+    l_95_CI_natScale = (l_95_CI),
+    u_95_CI_natScale = (u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_M2s)
+
+# Adding new components from this chunk to the working data list
+workingData_M2s <- c(workingData_M2s, list(
+  modelSummary = modelSummary_M2s
+))
+```
+
+*Pairwise Comparisons*
+```{r}
+
+# Probability of direction (pd)
+pd_emmeans_M2s <- bayestestR::p_direction(
+  model_M2s %>%
+    emmeans::emmeans(~ time_point |
+                       group, epred = TRUE, re_formula = NA, ) %>%
+    emmeans::contrast(method = "revpairwise")
+) |>
+  as.data.frame() %>%
+  dplyr::bind_rows(
+    .,
+    # Compute the interaction contrast (difference in contrasts between groups)
+    bayestestR::p_direction(
+      model_M2s %>%
+        emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA) %>%
+        emmeans::contrast(interaction = "revpairwise")
+    ) %>%
+      dplyr::rename(group = group_revpairwise, contrast = time_point_revpairwise)
+  ) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      group == "Control" ~ "Control",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl"
+    )
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+
+emmeans_M2s <-
+  dplyr::bind_rows(
+    model_M2s %>%
+      emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(method = "revpairwise") %>%
+      tidy(),
+    model_M2s %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(interaction = "revpairwise") %>%
+      tidy() %>%
+      dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise),
+  ) %>%
+  dplyr::rename(l_95_HPD = lower.HPD, u_95_HPD = upper.HPD) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl",
+      TRUE ~ group
+    ),
+    order = row_number(),
+    measure = "M2s"
+  ) %>%
+  base::merge(., pd_emmeans_M2s) |>
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    robust = case_when(as.integer(!(
+      l_95_HPD <= 0 & u_95_HPD > 0
+    )) == 1 & pd > .95 ~ "robust", TRUE ~ "not robust"),
+    writeUp = paste0(
+      "β=",
+      rd(estimate, digits = 2),
+      ", 95% HPD Interval = [",
+      rd(l_95_HPD, digits = 2),
+      ", ",
+      rd(u_95_HPD, digits = 2),
+      "]"
+    )
+  )
+
+rm(pd_emmeans_M2s)
+
+# Adding new components from this chunk to the working data list
+workingData_M2s <- c(workingData_M2s, list(
+  pairwise = emmeans_M2s
+))
+```
+
+*Save working data*
+```{r}
+
+base::saveRDS(workingData_M2s,
+              file = "workingData/data_M2s.RDS")
+
+```
+## 06. "sh"
+```{r}
+data_M2sh <- rio::import("../../Data/cleanData/data_consonantMeasures.csv") %>%
+  # Establishing the variables
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex, levels = c("Male", "Female")),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    seg_type = factor(seg_type),
+    consonant = factor(consonant)
+  ) %>%
+  # Filtering just the "s" consonant
+  dplyr::filter(consonant == "sh") %>%
+  # Filtering just the initial segments
+  dplyr::filter(seg_type == "initial")  %>%
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_M2sh <- list(
+  data = data_M2sh
+)
+```
+
+*Prep model data*
+```{r}
+# Transforming the data for the model
+modelData_M2sh <- workingData_M2sh$data %>%
+  dplyr::filter(seg_type == "initial")
+  
+
+# Checking the distribution of the DV
+hist(modelData_M2sh$m1)
+
+data_modelData_M2sh <- modelData_M2sh %>%
+  dplyr::select(speaker_id,
+                group,
+                sex,
+                age,
+                time_point,
+                artic_rate,
+                M2sh = m1) %>%
+  dplyr::mutate(
+    time_point = factor(time_point, levels = c("before", "sensors", "after"))
+  )
+
+performance::check_distribution(data_modelData_M2sh$M2sh)
+
+# Taking out the trash
+rm(modelData_M2sh)
+
+# Adding new components from this chunk to the working data list
+workingData_M2sh <- c(workingData_M2sh, list(
+  modelData = data_modelData_M2sh
+))
+```
+
+*Priors*
+First, we need to figure out the model parameters
+```{r}
+
+modelFormula_M2sh <-
+  M2sh ~ time_point * group + sex + age + artic_rate +
+  (1 | speaker_id) # random intercepts for speaker
+#(1 | phrase)
+
+brms::get_prior(modelFormula_M2sh, data = data_modelData_M2sh, family = gaussian())
+```
+Now we can specify weakly informative priors.
+```{r}
+prior_M2sh <- c(
+  prior(normal(0, 100), class = Intercept),
+  prior(normal(0, 100), class = b),
+  prior(cauchy(0, 100), class = sd), # variance
+  prior(cauchy(0, 100), class = sigma)
+)
+```
+
+*Building the model*
+```{r}
+model_M2sh <- brms::brm(
+  formula = modelFormula_M2sh,
+  data = data_modelData_M2sh,
+  prior = prior_M2sh,
+  family = gaussian(),
+  chains = 4,
+  cores = 4,
+  iter = 4000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  file = "Models/brms_M2sh.rds",
+  file_refit = "on_change"
+)
+
+# Calculating the residual variance
+if (file.exists("Models/variance_M2sh.rds") == T) {
+  variance_M2sh <- base::readRDS(file = "Models/variance_M2sh.rds")
+} else {
+  variance_M2sh <- insight::get_variance(model_M2sh)
+  base::saveRDS(variance_M2sh, file = "Models/variance_M2sh.rds")
+}
+```
+
+*Model Diagnostics*
+```{r}
+# Assess chain mixing
+plot_chainMix_M2sh <- base::plot(model_M2sh, ask=FALSE)
+
+# Posterior predictive check
+plot_ppCheck_M2sh <- brms::pp_check(model_M2sh, ndraws = 1000)
+
+# Plot conditional effects
+plot_conditionalEffects_M2sh <- base::plot(conditional_effects(model_M2sh), ask = FALSE)
+
+# Interval Estimations
+data_posterior_M2sh <- as.matrix(model_M2sh) %>%
+  as.data.frame()
+
+plot_intervalEst_M2sh <- mcmc_areas(
+  data_posterior_M2sh,
+  pars = fixed_effects <- data_posterior_M2sh %>%
+    as.data.frame() %>%
+    dplyr::select(starts_with("b_")) %>%
+    colnames(),
+  # arbitrary threshold for shading probability mass
+  prob = 0.95
+) 
+
+```
+
+*Model Summary*
+```{r}
+# Probability of direction (pd)
+pd_M2sh <- bayestestR::p_direction(model_M2sh) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_M2sh <- tidy(model_M2sh) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_M2sh, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = (estimate),
+    l_95_CI_natScale = (l_95_CI),
+    u_95_CI_natScale = (u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_M2sh)
+
+# Adding new components from this chunk to the working data list
+workingData_M2sh <- c(workingData_M2sh, list(
+  modelSummary = modelSummary_M2sh
+))
+```
+
+*Pairwise Comparisons*
+```{r}
+
+# Probability of direction (pd)
+pd_emmeans_M2sh <- bayestestR::p_direction(
+  model_M2sh %>%
+    emmeans::emmeans(~ time_point |
+                       group, epred = TRUE, re_formula = NA, ) %>%
+    emmeans::contrast(method = "revpairwise")
+) |>
+  as.data.frame() %>%
+  dplyr::bind_rows(
+    .,
+    # Compute the interaction contrast (difference in contrasts between groups)
+    bayestestR::p_direction(
+      model_M2sh %>%
+        emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA) %>%
+        emmeans::contrast(interaction = "revpairwise")
+    ) %>%
+      dplyr::rename(group = group_revpairwise, contrast = time_point_revpairwise)
+  ) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      group == "Control" ~ "Control",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl"
+    )
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+
+emmeans_M2sh <-
+  dplyr::bind_rows(
+    model_M2sh %>%
+      emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(method = "revpairwise") %>%
+      tidy(),
+    model_M2sh %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(interaction = "revpairwise") %>%
+      tidy() %>%
+      dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise),
+  ) %>%
+  dplyr::rename(l_95_HPD = lower.HPD, u_95_HPD = upper.HPD) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl",
+      TRUE ~ group
+    ),
+    order = row_number(),
+    measure = "M2sh"
+  ) %>%
+  base::merge(., pd_emmeans_M2sh) |>
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    robust = case_when(as.integer(!(
+      l_95_HPD <= 0 & u_95_HPD > 0
+    )) == 1 & pd > .95 ~ "robust", TRUE ~ "not robust"),
+    writeUp = paste0(
+      "β=",
+      rd(estimate, digits = 2),
+      ", 95% HPD Interval = [",
+      rd(l_95_HPD, digits = 2),
+      ", ",
+      rd(u_95_HPD, digits = 2),
+      "]"
+    )
+  )
+
+rm(pd_emmeans_M2sh)
+
+# Adding new components from this chunk to the working data list
+workingData_M2sh <- c(workingData_M2sh, list(
+  pairwise = emmeans_M2sh
+))
+```
+
+*Save working data*
+```{r}
+
+base::saveRDS(workingData_M2sh,
+              file = "workingData/data_M2sh.RDS")
+
+base::saveRDS(workingData_M1,
+              file = "workingData/data_M2.RDS")
+
+rm(data_modelData_M2s,
+   data_posterior_M2s,
+   model_M2s,
+   modelSummary_M2s,
+   plot_chainMix_M2s,
+   plot_conditionalEffects_M2s,
+   plot_intervalEst_M2s,
+   plot_ppCheck_M2s,
+   prior_M2s,
+   variance_M2s,
+   modelFormula_M2s,
+   fixed_effects,
+   emmeans_M2s,
+   interRel_M2,
+   intraRel_M2)
+
+rm(data_modelData_M2sh,
+   data_posterior_M2sh,
+   model_M2sh,
+   modelSummary_M2sh,
+   plot_chainMix_M2sh,
+   plot_conditionalEffects_M2sh,
+   plot_intervalEst_M2sh,
+   plot_ppCheck_M2sh,
+   prior_M2sh,
+   variance_M2sh,
+   modelFormula_M2sh,
+   emmeans_M2sh)
+
+```
+
+# 07. Intelligibility
+```{r}
+speakers <- rio::import("../../Data/cleanData/data_articulationRate.csv") |>
+  dplyr::select(speaker_id, group, sex, age) |>
+  dplyr::distinct() %>%
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group, levels = c("Control", "PD")),
+    sex = factor(sex, levels = c("Male", "Female"))
+  )
+
+# Loading in Perceptual Data
+data_Int <- rio::import("../../Data/cleanData/data_perceptual.csv") |>
+  dplyr::mutate(
+    gorilla_id = factor(gorilla_id),
+    counterbalance = factor(counterbalance),
+    speaker_id = factor(speaker_id),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    reliability = factor(reliability, levels = c("initial", "reliability")),
+    rating_type = factor(rating_type, levels = c("intelligibility", "naturalness"))
+  ) %>%
+  dplyr::left_join(., speakers, by = "speaker_id") %>%
+  dplyr::relocate(group:age, .after = speaker_id) %>%
+  dplyr::filter(rating_type == "intelligibility") %>%
+  # Recoding the Gorilla IDs to be readable
+  dplyr::group_by(gorilla_id) %>%
+  dplyr::mutate(listener_id = paste0("L", str_pad(cur_group_id(),2, pad = "0"))) %>%
+  dplyr::relocate(listener_id, .before = gorilla_id) %>%
+  arrange(listener_id) %>%
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_Int <- list(
+  data = data_Int
+)
+
+# Checking the number of unique ratings per speaker
+ratingNumbers <- data_Int %>%
+  dplyr::group_by(speaker_id, time_point, #cp_section,
+                  rating_type,
+                  reliability
+                  ) %>%
+  dplyr::summarise(ratingCount = NROW(listener_id))
+```
+
+*Reliability*
+```{r}
+speakers <- rio::import("../../Data/cleanData/data_articulationRate.csv") |>
+  dplyr::select(speaker_id, group, sex, age) |>
+  dplyr::distinct() %>%
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex)
+  )
+
+# Loading in Perceptual Data
+relData_Int <- rio::import("../../Data/cleanData/data_perceptual.csv") |>
+  dplyr::mutate(
+    gorilla_id = factor(gorilla_id),
+    counterbalance = factor(counterbalance),
+    speaker_id = factor(speaker_id),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    reliability = factor(reliability, levels = c("initial", "reliability")),
+    rating_type = factor(rating_type, levels = c("intelligibility", "naturalness"))
+  ) %>%
+  dplyr::left_join(., speakers, by = "speaker_id") %>%
+  dplyr::relocate(group:age, .after = speaker_id) %>%
+  dplyr::filter(rating_type == "intelligibility") %>%
+  # Recoding the Gorilla IDs to be readable
+  dplyr::group_by(gorilla_id) %>%
+  dplyr::mutate(listener_id = paste0("L", str_pad(cur_group_id(), 2, pad = "0"))) %>%
+  dplyr::ungroup(gorilla_id) %>%
+  dplyr::relocate(listener_id, .before = gorilla_id) %>%
+  arrange(listener_id) %>%
+  # Removing trial number
+  dplyr::select(!trial_number) %>%
+  # pivoting the seg_type to wider
+  tidyr::pivot_wider(names_from = "reliability", values_from = rating)
+
+# Intra-listener reliability
+intraRelData_Int <- relData_Int %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(listener_id != "L14") %>%
+  dplyr::filter(!is.na(reliability))
+
+intraRel_Int_mae <- intraRelData_Int %>%
+  dplyr::mutate(error = abs(initial - reliability)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+
+intraRel_Int_icc <- irr::icc(intraRelData_Int %>%
+                                  dplyr::select(initial, reliability),
+                                   model = "twoway",
+                                   type = "agreement",
+                                   unit = "average")
+
+intraRelCor_Int <- cor.test(intraRelData_Int$initial, intraRelData_Int$reliability, method = "pearson")
+
+# Inter-listener reliability
+interRel_ICC_Int <- relData_Int %>%
+  dplyr::select(!c(reliability, gorilla_id)) %>% # Exclude the 'reliability' column
+  dplyr::rename(rating = initial) %>% # Rename the 'initial' column to 'rating'
+  dplyr::filter(listener_id != "L14") %>%
+  dplyr::arrange(counterbalance) %>%
+  dplyr::group_by(counterbalance) %>%
+  tidyr::nest() %>% # Nest the data by 'counterbalance'
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    raterN = purrr::map_int(data, ~ n_distinct(.x$listener_id)),
+    # Count unique 'listener_id'
+    data = purrr::map(
+      data,
+      ~ tidyr::pivot_wider(.x, names_from = listener_id, values_from = rating)
+    ),
+    icc = purrr::map(
+      data,
+      ~ irr::icc(
+        ratings = .x %>% dplyr::select(!c(speaker_id:rating_type)),
+        model = "twoway",
+        type = "agreement",
+        unit = "average"
+      )
+    ),
+    icc_value = purrr::map_dbl(icc, ~ .x$value) # Extract the ICC value from each ICC object
+  )
+
+interRel_SD_Int <- relData_Int %>%
+  dplyr::group_by(speaker_id, time_point) %>%
+  dplyr::summarise(M = mean(initial),
+                   SD = sd(initial))
+
+
+# Adding new components from this chunk to the working data list
+workingData_Int <- c(workingData_Int, list(
+  interRel_icc = interRel_ICC_Int,
+  interRel_speakerSD = interRel_SD_Int,
+  intraRel = intraRelCor_Int,
+  intraRel_mae = intraRel_Int_mae,
+  intraRel_icc = intraRel_Int_icc
+))
+
+# Remove unneeded objects
+rm(interRel_SD_Int,
+   intraRelCor_Int,
+   relData_Int,
+   interRel_ICC_Int,
+   intraRel_Int_icc,
+   intraRel_Int_mae,
+   intraRelData_Int)
+```
+
+*Prep model data*
+```{r}
+# Transforming the data for the model
+modelData_Int <- workingData_Int$data %>%
+  dplyr::filter(listener_id != "L14") %>% # removing the one unreliable listener.
+  dplyr::filter(reliability == "initial") %>%
+  dplyr::rename(Int = rating)
+  
+
+# Checking the distribution of the DV
+hist(modelData_Int$Int)
+
+# Here, we rescale the measure to fit a beta distribtion
+epsilon <- 1e-5
+data_modelData_Int <- modelData_Int %>%
+  dplyr::select(speaker_id,
+                group,
+                sex,
+                age,
+                time_point,
+                artic_rate,
+                listener_id,
+                gorilla_id,
+                trial_number,
+                cp_section,
+                Int) %>%
+  dplyr::mutate(
+    Int = Int / 100,
+    # the following makes sure that 0 and 1 are not included in the beta distribution
+    Int = Int * ((nrow(.) - 1) + .5) / nrow(.),
+    Int = Int * (1 - 2 * epsilon) + epsilon,
+    time_point = factor(time_point, levels = c("before", "sensors", "after"))
+  )
+
+performance::check_distribution(data_modelData_Int$Int)
+
+# Taking out the trash
+rm(epsilon, modelData_Int)
+
+# Adding new components from this chunk to the working data list
+workingData_Int <- c(workingData_Int, list(
+  modelData = data_modelData_Int
+))
+```
+
+*Priors*
+First, we need to figure out the model parameters
+```{r}
+
+modelFormula_Int <-
+  Int ~ time_point * group + sex + age + trial_number + artic_rate +
+  (1 | speaker_id / cp_section) + 
+  (1 | listener_id)
+
+brms::get_prior(
+  modelFormula_Int, 
+  data = data_modelData_Int, 
+  family = Beta)
+```
+Now we can specify weakly informative priors.
+```{r}
+prior_Int <- c(
+  prior(normal(0, 100), class = Intercept), # start with larger value - 10
+  prior(normal(0, 100), class = b),
+  prior(cauchy(0, 100), class = sd), # paper on variance priors: https://projecteuclid.org/journals/bayesian-analysis/volume-1/issue-3/Prior-distributions-for-variance-parameters-in-hierarchical-models-comment-on/10.1214/06-BA117A.full - check 95% interval for cauchy - very large upper bound 10
+  prior(gamma(1, 0.5), class = phi) # Phi = 1, mu = .5
+) 
+```
+
+*Building the model*
+```{r}
+model_Int <- brms::brm(
+  formula = modelFormula_Int,
+  data = data_modelData_Int,
+  prior = prior_Int,
+  family = Beta,
+  chains = 4,
+  cores = 4,
+  iter = 4000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  file = "Models/brms_Int.rds",
+  file_refit = "on_change"
+)
+
+# Calculating the residual variance
+if (file.exists("Models/variance_Int.rds") == T) {
+  variance_Int <- base::readRDS(file = "Models/variance_Int.rds")
+} else {
+  variance_Int <- insight::get_variance(model_Int)
+  base::saveRDS(variance_Int, file = "Models/variance_Int.rds")
+}
+```
+
+*Model Diagnostics*
+```{r}
+# Assess chain mixing
+plot_chainMix_Int <- base::plot(model_Int, ask=FALSE)
+
+# Posterior predictive check
+plot_ppCheck_Int <- brms::pp_check(model_Int, ndraws = 1000)
+
+# Plot conditional effects
+plot_conditionalEffects_Int <- base::plot(conditional_effects(model_Int), ask = FALSE)
+
+# Interval Estimations
+data_posterior_Int <- as.matrix(model_Int) %>%
+  as.data.frame()
+
+plot_intervalEst_Int <- bayesplot::mcmc_areas(
+  data_posterior_Int,
+  pars = fixed_effects <- data_posterior_Int %>%
+    as.data.frame() %>%
+    dplyr::select(starts_with("b_")) %>%
+    colnames(),
+  # arbitrary threshold for shading probability mass
+  prob = 0.95
+) 
+
+```
+
+*Model Summary*
+```{r}
+# Probability of direction (pd)
+pd_Int <- bayestestR::p_direction(model_Int) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_Int <- tidy(model_Int) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_Int, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = exp(estimate),
+    l_95_CI_natScale = exp(l_95_CI),
+    u_95_CI_natScale = exp(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_Int)
+
+# Adding new components from this chunk to the working data list
+workingData_Int <- c(workingData_Int, list(
+  modelSummary = modelSummary_Int
+))
+```
+
+*Pairwise Comparisons*
+```{r}
+
+# Probability of direction (pd)
+pd_emmeans_Int <- bayestestR::p_direction(
+  model_Int %>%
+    emmeans::emmeans( ~ time_point |
+                        group, epred = TRUE, re_formula = NA, ) %>%
+    emmeans::contrast(method = "revpairwise")
+) |>
+  as.data.frame() %>%
+  dplyr::bind_rows(
+    .,
+    # Compute the interaction contrast (difference in contrasts between groups)
+    bayestestR::p_direction(
+      model_Int %>%
+        emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+        emmeans::contrast(interaction = "revpairwise")
+    )  %>%
+      dplyr::rename(group = group_revpairwise, contrast = time_point_revpairwise)
+  ) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      group == "Control" ~ "Control",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl"
+    )
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+epsilon <- 1e-5
+emmeans_Int <-
+  dplyr::bind_rows(
+    model_Int %>%
+      emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(method = "revpairwise") %>%
+      tidy(),
+    model_Int %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(interaction = "revpairwise") %>%
+      tidy() %>%
+      dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise),
+  ) %>%
+  dplyr::rename(l_95_HPD = lower.HPD, u_95_HPD = upper.HPD) %>%
+  dplyr::mutate(
+    # Convert measure back to 1-100 scale
+    estimate = (estimate - epsilon) / (1 - 2 * epsilon),
+    estimate = estimate * nrow(.) / ((nrow(.) - 1) + .5),
+    estimate = estimate * 100,
+    
+    # Convert l_95_HPD back to 1-100 scale
+    l_95_HPD = (l_95_HPD - epsilon) / (1 - 2 * epsilon),
+    l_95_HPD = l_95_HPD * nrow(.) / ((nrow(.) - 1) + .5),
+    l_95_HPD = l_95_HPD * 100,
+    
+    # Convert u_95_HPD back to 1-100 scale
+    u_95_HPD = (u_95_HPD - epsilon) / (1 - 2 * epsilon),
+    u_95_HPD = u_95_HPD * nrow(.) / ((nrow(.) - 1) + .5),
+    u_95_HPD = u_95_HPD * 100,
+    
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl",
+      TRUE ~ group
+    ),
+    
+    order = row_number(),
+    measure = "Int"
+  ) %>%
+  base::merge(., pd_emmeans_Int) |>
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    robust = case_when(as.integer(!(
+      l_95_HPD <= 0 & u_95_HPD > 0
+    )) == 1 & pd > .95 ~ "robust", TRUE ~ "not robust"),
+    writeUp = paste0(
+      "β=",
+      rd(estimate, digits = 2),
+      ", 95% HPD Interval = [",
+      rd(l_95_HPD, digits = 2),
+      ", ",
+      rd(u_95_HPD, digits = 2),
+      "]"
+    )
+  )
+
+rm(pd_emmeans_Int)
+
+# Adding new components from this chunk to the working data list
+workingData_Int <- c(workingData_Int, list(
+  pairwise = emmeans_Int
+))
+```
+
+*Save working data*
+```{r}
+
+base::saveRDS(workingData_Int,
+              file = "workingData/data_Int.RDS")
+
+rm(data_modelData_Int,
+   data_posterior_Int,
+   model_Int,
+   modelSummary_Int,
+   plot_chainMix_Int,
+   plot_conditionalEffects_Int,
+   plot_intervalEst_Int,
+   plot_ppCheck_Int,
+   prior_Int,
+   variance_Int,
+   modelFormula_Int,
+   fixed_effects,
+   emmeans_Int,
+   ratingNumbers,
+   speakers)
+```
+# 08. Naturalness
+```{r}
+speakers <- rio::import("../../Data/cleanData/data_articulationRate.csv") |>
+  dplyr::select(speaker_id, group, sex, age) |>
+  dplyr::distinct() %>%
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group, levels = c("Control", "PD")),
+    sex = factor(sex, levels = c("Male", "Female"))
+  )
+
+# Loading in Perceptual Data
+data_Nat <- rio::import("../../Data/cleanData/data_perceptual.csv") |>
+  dplyr::mutate(
+    gorilla_id = factor(gorilla_id),
+    counterbalance = factor(counterbalance),
+    speaker_id = factor(speaker_id),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    reliability = factor(reliability, levels = c("initial", "reliability")),
+    rating_type = factor(rating_type, levels = c("intelligibility", "naturalness"))
+  ) %>%
+  dplyr::left_join(., speakers, by = "speaker_id") %>%
+  dplyr::relocate(group:age, .after = speaker_id) %>%
+  dplyr::filter(rating_type == "naturalness") %>%
+  # Recoding the Gorilla IDs to be readable
+  dplyr::group_by(gorilla_id) %>%
+  dplyr::mutate(listener_id = paste0("L", str_pad(cur_group_id(),2, pad = "0"))) %>%
+  dplyr::relocate(listener_id, .before = gorilla_id) %>%
+  arrange(listener_id) %>% 
+  # Adding the artic rate measure to be used as a covariate
+  base::merge(., data_articRate %>%
+                group_by(speaker_id, group, sex, age, time_point) %>%
+                dplyr::summarise(artic_rate = mean(artic_rate)))
+
+# Adding new components from this chunk to the working data list
+workingData_Nat <- list(
+  data = data_Nat
+)
+
+# Checking the number of unique ratings per speaker
+ratingNumbers <- data_Nat %>%
+  dplyr::group_by(speaker_id, time_point, #cp_section,
+                  rating_type,
+                  reliability
+                  ) %>%
+  dplyr::summarise(ratingCount = NROW(listener_id))
+```
+
+*Reliability*
+```{r}
+speakers <- rio::import("../../Data/cleanData/data_articulationRate.csv") |>
+  dplyr::select(speaker_id, group, sex, age) |>
+  dplyr::distinct() %>%
+  dplyr::mutate(
+    speaker_id = factor(speaker_id),
+    group = factor(group),
+    sex = factor(sex)
+  )
+
+# Loading in Perceptual Data
+relData_Nat <- rio::import("../../Data/cleanData/data_perceptual.csv") |>
+  dplyr::mutate(
+    gorilla_id = factor(gorilla_id),
+    counterbalance = factor(counterbalance),
+    speaker_id = factor(speaker_id),
+    time_point = factor(time_point, levels = c("before", "sensors", "after")),
+    reliability = factor(reliability, levels = c("initial", "reliability")),
+    rating_type = factor(rating_type, levels = c("intelligibility", "naturalness"))
+  ) %>%
+  dplyr::left_join(., speakers, by = "speaker_id") %>%
+  dplyr::relocate(group:age, .after = speaker_id) %>%
+  dplyr::filter(rating_type == "naturalness") %>%
+  # Recoding the Gorilla IDs to be readable
+  dplyr::group_by(gorilla_id) %>%
+  dplyr::mutate(listener_id = paste0("L", str_pad(cur_group_id(), 2, pad = "0"))) %>%
+  dplyr::ungroup(gorilla_id) %>%
+  dplyr::relocate(listener_id, .before = gorilla_id) %>%
+  arrange(listener_id) %>%
+  # Removing trial number
+  dplyr::select(!trial_number) %>%
+  # pivoting the seg_type to wider
+  tidyr::pivot_wider(names_from = "reliability", values_from = rating)
+
+# Natra-listener reliability
+intraRelData_Nat <- relData_Nat %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(listener_id != "L14") %>%
+  dplyr::filter(!is.na(reliability))
+
+intraRel_Nat_mae <- intraRelData_Nat %>%
+  dplyr::mutate(error = abs(initial - reliability)) %>%
+  dplyr::summarise(MAE = mean(error),
+                   MAE_sd = sd(error))
+
+intraRel_Nat_icc <- irr::icc(intraRelData_Nat %>%
+                                  dplyr::select(initial, reliability),
+                                   model = "twoway",
+                                   type = "agreement",
+                                   unit = "average")
+
+intraRelCor_Nat <- cor.test(intraRelData_Nat$initial, intraRelData_Nat$reliability, method = "pearson")
+
+# Nater-listener reliability
+interRel_ICC_Nat <- relData_Nat %>%
+  dplyr::select(!c(reliability, gorilla_id)) %>% # Exclude the 'reliability' column
+  dplyr::rename(rating = initial) %>% # Rename the 'initial' column to 'rating'
+  dplyr::filter(listener_id != "L14") %>%
+  dplyr::arrange(counterbalance) %>%
+  dplyr::group_by(counterbalance) %>%
+  tidyr::nest() %>% # Nest the data by 'counterbalance'
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    raterN = purrr::map_int(data, ~ n_distinct(.x$listener_id)),
+    # Count unique 'listener_id'
+    data = purrr::map(
+      data,
+      ~ tidyr::pivot_wider(.x, names_from = listener_id, values_from = rating)
+    ),
+    icc = purrr::map(
+      data,
+      ~ irr::icc(
+        ratings = .x %>% dplyr::select(!c(speaker_id:rating_type)),
+        model = "twoway",
+        type = "agreement",
+        unit = "average"
+      )
+    ),
+    icc_value = purrr::map_dbl(icc, ~ .x$value) # Extract the ICC value from each ICC object
+  )
+
+interRel_SD_Nat <- relData_Nat %>%
+  dplyr::group_by(speaker_id, time_point) %>%
+  dplyr::summarise(M = mean(initial),
+                   SD = sd(initial))
+
+
+# Adding new components from this chunk to the working data list
+workingData_Nat <- c(workingData_Nat, list(
+  interRel_icc = interRel_ICC_Nat,
+  interRel_speakerSD = interRel_SD_Nat,
+  intraRel = intraRelCor_Nat,
+  intraRel_mae = intraRel_Nat_mae,
+  intraRel_icc = intraRel_Nat_icc
+))
+
+# Remove unneeded objects
+rm(interRel_SD_Nat,
+   intraRelCor_Nat,
+   relData_Nat,
+   interRel_ICC_Nat,
+   intraRel_Nat_icc,
+   intraRel_Nat_mae,
+   intraRelData_Nat)
+```
+
+*Prep model data*
+```{r}
+# Transforming the data for the model
+modelData_Nat <- workingData_Nat$data %>%
+  dplyr::filter(listener_id != "L14") %>% # removing the one unreliable listener.
+  dplyr::filter(reliability == "initial") %>%
+  dplyr::rename(Nat = rating)
+  
+
+# Checking the distribution of the DV
+hist(modelData_Nat$Nat)
+
+# Here, we rescale the measure to fit a beta distribtion
+epsilon <- 1e-5
+data_modelData_Nat <- modelData_Nat %>%
+  dplyr::select(speaker_id,
+                group,
+                sex,
+                age,
+                time_point,
+                artic_rate,
+                listener_id,
+                gorilla_id,
+                trial_number,
+                cp_section,
+                Nat) %>%
+  dplyr::mutate(
+    Nat = Nat / 100,
+    # the following makes sure that 0 and 1 are not included in the beta distribution
+    Nat = Nat * ((nrow(.) - 1) + .5) / nrow(.),
+    Nat = Nat * (1 - 2 * epsilon) + epsilon,
+    time_point = factor(time_point, levels = c("before", "sensors", "after"))
+  )
+
+hist(data_modelData_Nat$Nat)
+performance::check_distribution(data_modelData_Nat$Nat)
+
+data_modelData_Nat %>%
+  ggplot() +
+  aes(x = Nat,
+      fill = group) +
+  geom_histogram()
+
+# Taking out the trash
+rm(epsilon, modelData_Nat)
+
+# Adding new components from this chunk to the working data list
+workingData_Nat <- c(workingData_Nat, list(
+  modelData = data_modelData_Nat
+))
+```
+
+*Priors*
+First, we need to figure out the model parameters
+```{r}
+
+modelFormula_Nat <-
+  Nat ~ time_point * group + sex + age + trial_number + artic_rate +
+  (1 | speaker_id / cp_section) + 
+  (1 | listener_id)
+
+brms::get_prior(
+  modelFormula_Nat, 
+  data = data_modelData_Nat, 
+  family = Beta)
+```
+Now we can specify weakly informative priors.
+```{r}
+prior_Nat <- c(
+  prior(normal(0, 100), class = Intercept), # start with larger value - 10
+  prior(normal(0, 100), class = b),
+  prior(cauchy(0, 100), class = sd), # paper on variance priors: https://projecteuclid.org/journals/bayesian-analysis/volume-1/issue-3/Prior-distributions-for-variance-parameters-in-hierarchical-models-comment-on/10.1214/06-BA117A.full - check 95% interval for cauchy - very large upper bound 10
+  prior(gamma(1, 0.5), class = phi) # Phi = .5, mu = .5
+)
+```
+
+*Building the model*
+```{r}
+model_Nat <- brms::brm(
+  formula = modelFormula_Nat,
+  data = data_modelData_Nat,
+  prior = prior_Nat,
+  family = Beta,
+  chains = 4,
+  cores = 4,
+  iter = 4000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  file = "Models/brms_Nat.rds",
+  file_refit = "on_change"
+)
+
+# Calculating the residual variance
+if (file.exists("Models/variance_Nat.rds") == T) {
+  variance_Nat <- base::readRDS(file = "Models/variance_Nat.rds")
+} else {
+  variance_Nat <- insight::get_variance(model_Nat)
+  base::saveRDS(variance_Nat, file = "Models/variance_Nat.rds")
+}
+```
+*Model Diagnostics*
+```{r}
+# Assess chain mixing
+plot_chainMix_Nat <- base::plot(model_Nat, ask=FALSE)
+
+# Posterior predictive check
+plot_ppCheck_Nat <- brms::pp_check(model_Nat, ndraws = 1000)
+
+# Plot conditional effects
+plot_conditionalEffects_Nat <- base::plot(conditional_effects(model_Nat), ask = FALSE)
+
+# Interval Estimations
+data_posterior_Nat <- as.matrix(model_Nat) %>%
+  as.data.frame()
+
+plot_intervalEst_Nat <- mcmc_areas(
+  data_posterior_Nat,
+  pars = fixed_effects <- data_posterior_Nat %>%
+    as.data.frame() %>%
+    dplyr::select(starts_with("b_")) %>%
+    colnames(),
+  # arbitrary threshold for shading probability mass
+  prob = 0.95
+) 
+
+```
+
+*Model Summary*
+```{r}
+# Probability of direction (pd)
+pd_Nat <- bayestestR::p_direction(model_Nat) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_Nat <- tidy(model_Nat) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_Nat, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_Nat)
+
+# Adding new components from this chunk to the working data list
+workingData_Nat <- c(workingData_Nat, list(
+  modelSummary = modelSummary_Nat
+))
+```
+
+*Pairwise Comparisons*
+```{r}
+
+# Probability of direction (pd)
+pd_emmeans_Nat <- bayestestR::p_direction(
+  model_Nat %>%
+    emmeans::emmeans( ~ time_point |
+                        group, epred = TRUE, re_formula = NA, ) %>%
+    emmeans::contrast(method = "revpairwise")
+) |>
+  as.data.frame() %>%
+  dplyr::bind_rows(
+    .,
+    # Compute the interaction contrast (difference in contrasts between groups)
+    bayestestR::p_direction(
+      model_Nat %>%
+        emmeans::emmeans(~ time_point * group, epred = TRUE, re_formula = NA) %>%
+        emmeans::contrast(interaction = "revpairwise")
+    )  %>%
+      dplyr::rename(group = group_revpairwise, contrast = time_point_revpairwise)
+  ) %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      group == "Control" ~ "Control",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl"
+    )
+  ) %>%
+  dplyr::filter(contrast != "after - sensors")
+
+epsilon <- 1e-5
+emmeans_Nat <-
+  dplyr::bind_rows(
+    model_Nat %>%
+      emmeans::emmeans( ~ time_point | group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(method = "revpairwise") %>%
+      tidy(),
+    model_Nat %>%
+      emmeans::emmeans( ~ time_point * group, epred = TRUE, re_formula = NA, ) %>%
+      emmeans::contrast(interaction = "revpairwise") %>%
+      tidy() %>%
+      dplyr::rename(contrast = time_point_revpairwise, group = group_revpairwise),
+  ) %>%
+  dplyr::rename(l_95_HPD = lower.HPD, u_95_HPD = upper.HPD) %>%
+  dplyr::mutate(
+    # Convert measure back to 1-100 scale
+    estimate = (estimate - epsilon) / (1 - 2 * epsilon),
+    estimate = estimate * nrow(.) / ((nrow(.) - 1) + .5),
+    estimate = estimate * 100,
+    
+    # Convert l_95_HPD back to 1-100 scale
+    l_95_HPD = (l_95_HPD - epsilon) / (1 - 2 * epsilon),
+    l_95_HPD = l_95_HPD * nrow(.) / ((nrow(.) - 1) + .5),
+    l_95_HPD = l_95_HPD * 100,
+    
+    # Convert u_95_HPD back to 1-100 scale
+    u_95_HPD = (u_95_HPD - epsilon) / (1 - 2 * epsilon),
+    u_95_HPD = u_95_HPD * nrow(.) / ((nrow(.) - 1) + .5),
+    u_95_HPD = u_95_HPD * 100,
+    
+    group = case_when(
+      group == "PD" ~ "PwPD",
+      grepl(pattern = "PD - Control", group) ~ "PwPD -\nControl",
+      TRUE ~ group
+    ),
+    
+    order = row_number(),
+    measure = "Nat"
+  ) %>%
+  base::merge(., pd_emmeans_Nat) |>
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    robust = case_when(as.integer(!(
+      l_95_HPD <= 0 & u_95_HPD > 0
+    )) == 1 & pd > .95 ~ "robust", TRUE ~ "not robust"),
+    writeUp = paste0(
+      "β=",
+      rd(estimate, digits = 2),
+      ", 95% HPD Naterval = [",
+      rd(l_95_HPD, digits = 2),
+      ", ",
+      rd(u_95_HPD, digits = 2),
+      "]"
+    )
+  )
+
+rm(pd_emmeans_Nat)
+
+# Adding new components from this chunk to the working data list
+workingData_Nat <- c(workingData_Nat, list(
+  pairwise = emmeans_Nat
+))
+```
+
+*Save working data*
+```{r}
+
+base::saveRDS(workingData_Nat,
+              file = "workingData/data_Nat.RDS")
+
+rm(data_modelData_Nat,
+   data_posterior_Nat,
+   model_Nat,
+   modelSummary_Nat,
+   plot_chainMix_Nat,
+   plot_conditionalEffects_Nat,
+   plot_intervalEst_Nat,
+   plot_ppCheck_Nat,
+   prior_Nat,
+   variance_Nat,
+   modelFormula_Nat,
+   fixed_effects,
+   emmeans_Nat,
+   ratingNumbers,
+   speakers)
+
+```

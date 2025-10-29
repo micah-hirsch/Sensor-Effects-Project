@@ -1,0 +1,1767 @@
+---
+title: "Sensor Effects: Tables"
+output: html_notebook
+---
+
+
+# Packages
+
+```{r}
+library(tidyverse) # install.packages("tidyverse")
+library(gt) # install.packages("gt")
+library(sjPlot) # install.packages("sjPlot")
+library(tidystats) # install.packages("tidystats")
+library(gtsummary) # install.packages("gtsummary")
+library(curl) # install.packages("curl")
+library(brms) # install.packages("brms")
+library(broom.mixed)  # install.packages("broom.mixed")
+
+```
+
+
+# Supp - Speaker Demographics (PD)
+```{r}
+download.file("https://raw.githubusercontent.com/AustinRThompson/multidomain-vowelArtic-PD/main/Data/PreppedData/Speaker%20List_Clean.csv", destfile = "fileInventories.csv", method = "libcurl")
+
+fileInventories <- rio::import("fileInventories.csv") %>%
+  dplyr::select(speaker_id = DatabaseID,
+                Group,
+                Sex,
+                Age,
+                dxTime,
+                MoCA) %>%
+  dplyr::mutate(Group = factor(Group,
+                               levels = c("HC", "PD"),
+                               labels = c("Control", "PwPD")),
+                Sex = factor(Sex,
+                             levels = c("M", "F"),
+                             labels = c("Male", "Female")))
+
+download.file("https://raw.githubusercontent.com/AustinRThompson/multidomain-vowelArtic-PD/main/Data/PreppedData/CollatedData/TargetMeasures_aiMeasures.csv", destfile = "listenerRatings.csv", method = "libcurl")
+
+listenerRatings <- rio::import(
+  file = "listenerRatings.csv"
+) %>%
+  dplyr::filter(condition == "conv") %>%
+  dplyr::group_by(DatabaseID) %>%
+  dplyr::summarise(Rating_M = mean(Int_M, na.rm = T)) %>%
+  dplyr::rename(speaker_id = DatabaseID)
+
+speakers <- rio::import("../../Data/cleanData/articulation_rate.csv") |>
+  dplyr::select(speaker_id,
+                Group = group,
+                Sex = sex,
+                Age = age) |>
+  dplyr::distinct() %>%
+  base::merge(., fileInventories, all.x = TRUE) %>%
+  base::merge(., listenerRatings, all.x = TRUE) %>%
+    # Severity-surrogate ratings
+  dplyr::mutate(
+    Severity = case_when(
+      Group == "Control" ~ "",
+      Rating_M > 94 ~ "Normal",
+      between(Rating_M, 85, 94.99) ~ "Mild",
+      between(Rating_M, 70, 84.99) ~ "Moderate",
+      between(Rating_M, 45, 69.99) ~ "Severe",
+      Rating_M < 45 ~ "Profound",
+      TRUE ~ ""
+    )
+  )
+
+speakers %>%
+  arrange(desc(Sex)) %>%
+  arrange(desc(Group)) %>%
+  dplyr::filter(Group == "PD") |>
+  dplyr::rename(DatabaseID = speaker_id) %>%
+  group_by(Sex,Group) %>%
+  dplyr::mutate(
+    StudyID = paste0(ifelse(Group == "PD","PD","C"),ifelse(Sex == "Male","M","F"),str_pad(row_number(), 2, pad = "0")),
+    Sex = factor(Sex,
+                 levels = c("Male",
+                        "Female"),
+                 labels = c("Male Speakers",
+                            "Female Speakers"))) %>%
+  dplyr::select(!c(DatabaseID, MoCA, Rating_M)) %>%
+  dplyr::relocate(StudyID, .before = Group) |>
+  
+  # Creating the gt table
+  gt::gt(rowname_col = "StudyID",
+         groupname_col = "Sex") %>%
+  
+  # Title
+  #gt::tab_header(#title = "Table S1",
+  #               subtitle = "Speaker demographics for speakers with Parkinson's disease.") %>%
+  
+  # Replace missing values with blanks
+  gt::sub_missing(columns = everything(),
+                  rows = everything(),
+                  missing_text = "") %>%
+  
+  # Renaming columns
+  gt::cols_label(dxTime = "Time Since Diagnosis (years)") %>%
+  
+  
+  # Adding summary rows
+  ## Control Speakers
+  gt::summary_rows(
+    groups = "Male Speakers",
+    columns = c(Group),
+    fns = list(n = ~ NROW(.)),
+    fmt = list(~ gt::fmt_number(., decimals = 0))
+  ) %>% 
+  gt::summary_rows(
+    groups = "Male Speakers",
+    columns = c(Age, dxTime),
+    fns = list(
+      M = ~ mean(., na.rm = TRUE),
+      SD = ~ sd(., na.rm = TRUE)
+    ),
+    fmt = list( ~ gt::fmt_number(., decimals = 2))
+  ) %>%
+  
+  ## Female Speakers
+  gt::summary_rows(
+    groups = "Female Speakers",
+    columns = c(Group),
+    fns = list(n = ~ NROW(.)),
+    fmt = list( ~ gt::fmt_number(., decimals = 0))
+  ) %>% 
+  gt::summary_rows(
+    groups = "Female Speakers",
+    columns = c(Age, dxTime),
+    fns = list(
+      M = ~ mean(., na.rm = TRUE),
+      SD = ~ sd(., na.rm = TRUE)
+    ),
+    fmt = list( ~ gt::fmt_number(., decimals = 2))
+  ) %>%
+  
+  gt::grand_summary_rows(
+    columns = c(Group),
+    fns = list(
+      N = ~ NROW(.)
+    ),
+    fmt = list( ~ gt::fmt_number(., decimals = 0))
+  ) |>
+  gt::grand_summary_rows(
+    columns = c(Age, dxTime),
+    fns = list(
+      `Total M` = ~ mean(., na.rm = TRUE),
+      `Total SD` = ~ sd(., na.rm = TRUE)
+    ),
+    fmt = list( ~ gt::fmt_number(., decimals = 2))
+  ) |>
+  
+  # Adding footnote to Severity
+  gt::tab_footnote(
+    footnote = "Severity labels were previously determined by Thompson & Kim (2024) based on the intelligibility measures using the surrogate-severity measures outlined in Stipancic et al. (2022). Specifically, intelligibility values > 94% are `Normal`, 85% - 94% are `Mild`, 70% - 84% are `Moderate`, 45% - 69% are `Severe`, and < 45% are `Profound`.",
+    locations = gt::cells_column_labels(columns = Severity)
+  ) |>
+  gt::tab_options(table.font.names = "Times New Roman") |>
+
+  gt::gtsave(filename = "Tables/SupTbl_Speakers with PD Demographics.html")
+
+```
+
+# Supp - Speaker Demographics (Control)
+```{r}
+speakers %>%
+  arrange(desc(Sex)) %>%
+  arrange(desc(Group)) %>%
+  dplyr::filter(Group == "Control") |>
+  dplyr::rename(DatabaseID = speaker_id) %>%
+  group_by(Sex,Group) %>%
+  dplyr::mutate(
+    StudyID = paste0(ifelse(Group == "PD","PD","C"),ifelse(Sex == "Male","M","F"),str_pad(row_number(), 2, pad = "0")),
+    Sex = factor(Sex,
+                 levels = c("Male",
+                        "Female"),
+                 labels = c("Male Speakers",
+                            "Female Speakers"))) %>%
+  dplyr::select(!c(DatabaseID, MoCA, dxTime, Rating_M, Severity)) %>%
+  dplyr::relocate(StudyID, .before = Group) |>
+  
+  # Creating the gt table
+  gt::gt(rowname_col = "StudyID",
+         groupname_col = "Sex") %>%
+  
+  # Title
+  #gt::tab_header(#title = "Table S2",
+  #               subtitle = "Speaker demographics for speakers without Parkinson's disease.") %>%
+  
+  # Replace missing values with blanks
+  gt::sub_missing(columns = everything(),
+                  rows = everything(),
+                  missing_text = "") %>%
+  
+  # Adding summary rows
+  ## Control Speakers
+  gt::summary_rows(
+    groups = "Male Speakers",
+    columns = c(Group),
+    fns = list(n = ~ NROW(.)),
+    fmt = list(~ gt::fmt_number(., decimals = 0))
+  ) %>% 
+  gt::summary_rows(
+    groups = "Male Speakers",
+    columns = c(Age),
+    fns = list(
+      M = ~ mean(., na.rm = TRUE),
+      SD = ~ sd(., na.rm = TRUE)
+    ),
+    fmt = list( ~ gt::fmt_number(., decimals = 2))
+  ) %>%
+  
+  ## Female Speakers
+  gt::summary_rows(
+    groups = "Female Speakers",
+    columns = c(Group),
+    fns = list(n = ~ NROW(.)),
+    fmt = list( ~ gt::fmt_number(., decimals = 0))
+  ) %>% 
+  gt::summary_rows(
+    groups = "Female Speakers",
+    columns = c(Age),
+    fns = list(
+      M = ~ mean(., na.rm = TRUE),
+      SD = ~ sd(., na.rm = TRUE)
+    ),
+    fmt = list( ~ gt::fmt_number(., decimals = 2))
+  ) %>%
+  
+  gt::grand_summary_rows(
+    columns = c(Group),
+    fns = list(
+      N = ~ NROW(.)
+    ),
+    fmt = list( ~ gt::fmt_number(., decimals = 0))
+  ) |>
+  gt::grand_summary_rows(
+    columns = c(Age),
+    fns = list(
+      `Total M` = ~ mean(., na.rm = TRUE),
+      `Total SD` = ~ sd(., na.rm = TRUE)
+    ),
+    fmt = list( ~ gt::fmt_number(., decimals = 2))
+  ) |>
+  gt::tab_options(table.font.names = "Times New Roman") |>
+
+  gt::gtsave(filename = "Tables/SupTbl_Speakers without PD Demographics.html")
+```
+
+# Table - Speaker Demo
+Summary of age, sex, PD severity count, years since diagnosis.
+"For a full description..." supplemental info.
+```{r}
+library(gtsummary)
+library(gt)
+
+# Getting the demographic information from Thompson & Kim 2024
+fileInventories <- rio::import("fileInventories.csv") %>%
+  dplyr::select(speaker_id = DatabaseID,
+                Group,
+                Sex,
+                Age,
+                dxTime,
+                MoCA) %>%
+  dplyr::mutate(Group = factor(Group,
+                               levels = c("HC", "PD"),
+                               labels = c("Control", "PD")),
+                Sex = factor(Sex,
+                             levels = c("M", "F"),
+                             labels = c("Male", "Female")))
+
+# Getting the listener ratings from Thompson & Kim 2024
+listenerRatings <- rio::import(
+  file = "listenerRatings.csv"
+) %>%
+  dplyr::filter(condition == "conv") %>%
+  dplyr::group_by(DatabaseID) %>%
+  dplyr::summarise(Rating_M = mean(Int_M, na.rm = T)) %>%
+  dplyr::rename(speaker_id = DatabaseID)
+
+speakers <- rio::import("../../Data/cleanData/data_articulationRate.csv") |>
+  dplyr::select(speaker_id,
+                Group = group,
+                Sex = sex,
+                Age = age) |>
+  dplyr::distinct() %>%
+  base::merge(., fileInventories, all.x = TRUE) %>%
+  base::merge(., listenerRatings, all.x = TRUE) %>%
+    # Severity-surrogate ratings
+  dplyr::mutate(
+    Severity = case_when(
+      Group == "Control" ~ "",
+      Rating_M > 94 ~ "Normal",
+      between(Rating_M, 85, 94.99) ~ "Mild",
+      between(Rating_M, 70, 84.99) ~ "Moderate",
+      between(Rating_M, 45, 69.99) ~ "Severe",
+      Rating_M < 45 ~ "Profound",
+      TRUE ~ ""
+    )
+  )
+
+# Demographic table for the current study
+table_speakerDemo <- speakers |>
+  dplyr::mutate(
+    Group = factor(
+      Group,
+      levels = c("Control", "PD"),
+      labels = c(
+        "Control",
+        "People with Parkinson's Disease (PwPD)"
+      )
+    ),
+    Severity = factor(
+      Severity,
+      levels = c("", "Mild", "Moderate", "Severe", "Profound"),
+      labels = c("none", "Mild", "Moderate", "Severe", "Profound")
+    )
+  ) %>%
+  base::rbind(.,
+              speakers |>
+                dplyr::mutate(
+                  Group = "All Speakers",
+                  Severity = NA,
+                  dxTime = NA
+                )) %>%
+  dplyr::mutate(Group = factor(Group,
+    levels = c(
+      "All Speakers",
+      "Control",
+      "People with Parkinson's Disease (PwPD)"
+    )
+  ),
+  Sex = factor(Sex)) |> 
+  select(-c(speaker_id, MoCA, Rating_M)) |> 
+  gtsummary::tbl_summary(
+        by = Group,
+        type = list(
+          Age ~ "continuous",
+          Sex ~ "categorical",
+          dxTime ~ "continuous",
+          Severity ~ "categorical"
+        ),
+        statistic = list(
+          Age ~ "{mean} ({sd})",
+          Sex ~ "{n} ({p}%)",
+          dxTime ~ "{mean} ({sd})",
+          Severity ~ "{n} ({p}%)"
+        ),
+        digits = list(everything() ~ c(2), Sex ~ 0, Severity ~ 0),
+        label = list(
+          Age ~ "Age",
+          Sex ~ "Sex",
+          dxTime ~ "Time Since Diagnosis (years)",
+          Severity ~ "Severity"
+        ),
+        missing = "no",
+      ) %>%
+      #gtsummary::modify_header(all_stat_cols() ~ "**{level}**") |>
+  gtsummary::modify_table_body(~ .x %>%
+                                 mutate(
+                                   across(all_stat_cols(), ~ gsub("^NA.*", "-", .)),
+                                   across(all_stat_cols(), ~ gsub("^0.*", "-", .))
+                                 )) |>
+  gtsummary::modify_table_styling(
+    columns = label,
+    rows = label == "Severity",
+    footnote = "Severity labels were previously determined by Thompson & Kim (2024) based on the intelligibility measures using the surrogate-severity measures outlined in Stipancic et al. (2022). Specifically, intelligibility values > 94% are 'Normal', 85% - 94% are 'Mild', 70% - 84% are 'Moderate', 45% - 69% are 'Severe', and < 45% are 'Profound'."
+  ) %>%
+    gtsummary::remove_row_type(variables = c(Severity), 
+                  type = "level", level_value = ("none")) %>%
+  gtsummary::modify_header(all_stat_cols() ~ "**{level}**") %>%
+  gtsummary::as_gt() |>
+  gtsave("Tables/Tbl_speaker_demo.html")
+```
+
+# Supp - Listener Demographics
+```{r}
+# Loading in Perceptual Data
+perceptual_data <- rio::import("../../Data/cleanData/data_perceptual.csv") |>
+  dplyr::mutate(counterbalance = as.factor(counterbalance),
+                time_point = factor(time_point, levels = c("before", "sensors", "after")),
+                reliability = factor(reliability, levels = c("initial", "reliability")),
+                rating_type = factor(rating_type, levels = c("intelligibility", "naturalness")))
+
+listener_demo <- rio::import("../../Data/cleanData/listener_demographics.csv") |>
+  dplyr::mutate(english = as.factor(english),
+                age = as.numeric(age),
+                gender = as.factor(gender),
+                race = as.factor(race),
+                ethnicity = as.factor(ethnicity))
+
+
+# Listener Demographics Table
+listener_demo |>
+  select(-c(listener_id, english)) |>
+  gtsummary::tbl_summary(type = list(age ~ "continuous",
+                          gender ~ "categorical",
+                          race ~ "categorical",
+                          ethnicity ~ "categorical"),
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{n} ({p}%)"),
+              digits = list(everything() ~ c(2),
+                            gender ~ 0,
+                            race ~ 0,
+                            ethnicity ~ 0),
+              label = list(age ~ "Age",
+                           gender ~ "Gender",
+                           race ~ "Race",
+                           ethnicity ~ "Ethnicity")) |>
+  gtsummary::as_gt() |>
+  gtsave("Tables/SupTbl_listener_demo.html")
+
+rm(listener_demo)
+```
+
+
+# Table S4 - Passage Sections
+```{r}
+# Load necessary libraries
+library(gt)
+library(dplyr)
+
+# Create the data
+data <- tibble(
+  Section = c("Section 1", "Section 2", "Section 3"),
+  Passage_Text = c(
+    "**Do you like amusement parks?** Well, I sure do. To amuse myself, I went twice last spring. My most MEMORABLE moment was riding on the Caterpillar, which is a gigantic rollercoaster high above the ground. When I saw how high the Caterpillar rose into the bright blue sky, I knew it was for me.",
+    "After waiting in line for thirty minutes, I made it to the front where the man measured my height to see if I was tall enough. I gave the man my coins, asked for change, and jumped on the cart. Tick, tick, tick, the Caterpillar climbed slowly up the tracks. **It went SO high I could see the parking lot. Boy, was I SCARED!** I thought to myself, 'There’s no turning back now.'",
+    "People were so scared they screamed as we swiftly zoomed fast, fast, and faster along the tracks. As quickly as it started, the Caterpillar came to a stop. Unfortunately, it was time to pack the car and drive home. That night I dreamt of the wild ride on the Caterpillar. **Taking a trip to the amusement park and riding on the Caterpillar was my MOST memorable moment ever!**"
+  )
+)
+
+# Create the table
+table_s4 <- data %>%
+  gt() %>%
+  #tab_header(
+    #title = md("Table 2"),
+  #) %>%
+  cols_label(
+    Section = "Section",
+    Passage_Text = "Passage Text"
+  ) %>%
+  tab_footnote(
+    footnote = "Bold text indicates the three segments that were used to calculate the articulation rate.",
+    locations = cells_column_labels(columns = Passage_Text)
+  ) %>%
+  # Enable HTML rendering for the Passage_Text column
+  fmt_markdown(columns = Passage_Text) |>
+  
+  gt::gtsave(filename = "Tables/Tbl_SpeechStimuli.html")
+```
+
+# Table - Summary Measures
+```{r}
+# Load necessary libraries
+library(gt)
+library(dplyr)
+
+workingData_articRate <- base::readRDS(file = "workingData/data_articRate.RDS")
+workingData_AAVS <- base::readRDS(file = "workingData/data_AAVS.RDS")
+workingData_M1s <- base::readRDS(file = "workingData/data_M1s.RDS")
+workingData_M1sh <- base::readRDS(file = "workingData/data_M1sh.RDS")
+workingData_M2s <- base::readRDS(file = "workingData/data_M2s.RDS")
+workingData_M2sh <- base::readRDS(file = "workingData/data_M2sh.RDS")
+workingData_Int <- base::readRDS(file = "workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "workingData/data_Nat.RDS")
+
+allData <- rbind(
+  articRate <- workingData_articRate$data %>%
+    dplyr::filter(seg_type == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "Articulation Rate") %>%
+    dplyr::rename(value = artic_rate) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value),
+  
+  aavs <- workingData_AAVS$data %>%
+    dplyr::filter(seg_type == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "AAVS") %>%
+    dplyr::rename(value = AAVS) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value),
+  
+  duration <- workingData_AAVS$data %>%
+    dplyr::filter(seg_type == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "Passage Duration") %>%
+    dplyr::rename(value = duration) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value),
+  
+  M1s <- workingData_M1s$data %>%
+    dplyr::filter(seg_type == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "M1 for /s/") %>%
+    dplyr::rename(value = m1) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value),
+  
+  M2s <- workingData_M2s$data %>%
+    dplyr::filter(seg_type == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "M2 for /s/") %>%
+    dplyr::rename(value = m2) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value),
+  
+  M1sh <- workingData_M1sh$data %>%
+    dplyr::filter(seg_type == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "M1 for /ʃ/") %>%
+    dplyr::rename(value = m1) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value),
+  
+  M2sh <- workingData_M2sh$data %>%
+    dplyr::filter(seg_type == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "M2 for /ʃ/") %>%
+    dplyr::rename(value = m2) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value),
+  
+  int <- workingData_Int$data %>%
+    dplyr::filter(gorilla_id != "10237851") %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(reliability == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "Intelligibility") %>%
+    dplyr::rename(value = rating) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value), 
+  
+  nat <- workingData_Nat$data %>%
+    dplyr::filter(gorilla_id != "10237851") %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(reliability == "initial") %>% # making sure we're not including the reliability measurements
+    dplyr::mutate(measure = "Naturalness") %>%
+    dplyr::rename(value = rating) %>%
+    dplyr::select(speaker_id, time_point, group, sex, age, measure, value)
+) %>%
+  dplyr::mutate(time_point = factor(time_point,
+                                    levels = c("before",
+                                               "sensors",
+                                               "after"),
+                                    labels = c("Before Sensors",
+                                               "With Sensors",
+                                               "After Sensors")))
+
+tableData <- rbind(
+  allData %>%
+    dplyr::mutate(row_group = "All Speakers"),
+  
+  allData %>%
+    dplyr::filter(sex == "Male") %>%
+    dplyr::mutate(row_group = "Male Speakers"),
+  
+  allData %>%
+    dplyr::filter(sex == "Female") %>%
+    dplyr::mutate(row_group = "Female Speakers")
+) %>%
+  dplyr::group_by(group, measure, row_group, time_point) %>%
+  dplyr::summarise(M = mean(value), SD = sd(value),
+                   M_sd = paste0(weights::rd(M)," (",weights::rd(SD),")")) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(!c(M,SD)) %>%
+  tidyr::pivot_wider(names_from = time_point, values_from = M_sd) %>%
+  tidyr::pivot_wider(names_from = group, values_from = `Before Sensors`:`After Sensors`) %>%
+  dplyr::mutate(measure = factor(measure,
+                                 levels = c("Articulation Rate",
+                                            "AAVS",
+                                            "Passage Duration",
+                                            "M1 for /s/",
+                                            "M2 for /s/",
+                                            "M1 for /ʃ/",
+                                            "M2 for /ʃ/",
+                                            "Intelligibility",
+                                            "Naturalness"),
+                                 labels = c("Articulation Rate (syl/s)",
+                                            "Articulatory Acoustic Vowel Space (mel\U00B2)",
+                                            
+                                            "Passage Duration (s)",
+                                            "M1 for /s/ (kHz)",
+                                            "M2 for /s/ (kHz)",
+                                            "M1 for /ʃ/ (kHz)",
+                                            "M2 for /ʃ/ (kHz)",
+                                            "Intelligibility (VAS)",
+                                            "Naturalness (VAS)"))) %>%
+  arrange(measure) %>%
+  arrange(row_group)
+
+
+
+tableData %>%
+  dplyr::filter(measure != "Passage Duration (s)") %>%
+  dplyr::relocate(contains("PD"), .after = "After Sensors_Control") |>
+  group_by(row_group) |>
+  gt::gt() |>
+    tab_spanner(
+    label = md("**Control**"),
+    columns = contains("Control"),
+    level = 2,
+    gather = F
+  ) |>
+  gt::tab_spanner(
+    label = md("**People with Parkinson's disease (PwPD)**"),
+    columns = contains("PD"),
+    level = 2,
+    gather = F
+  ) |>
+  gt::cols_label(
+    contains("Before") ~ "Before Sensors",
+    contains("With") ~ "With Sensors",
+    contains("After") ~ "After Sensors",
+    "measure" = "Measure"
+  ) |>
+  gt::cols_align(
+    align = "right",
+    columns = c("measure", contains("Before"), contains("With"), contains("After"))
+  ) |>
+  gt::gtsave(filename = "Tables/Tbl_Summary Statistics.html")
+
+
+```
+
+
+
+# Table 2 - ArticRate & AAVS
+## Artic Rate
+```{r}
+# Loading the models
+model_articRate <- base::readRDS(file = "Models/brms_articRate.rds")
+
+# Loading the residual variance values
+variance_articRate <- base::readRDS(file = "Models/variance_articRate.rds")
+
+# Probability of direction (pd)
+pd_articRate <- bayestestR::p_direction(model_articRate) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_articRate <- tidy(model_articRate) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_articRate, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_articRate)
+```
+
+## AAVS
+```{r}
+# Loading the models
+model_AAVS <- base::readRDS(file = "Models/brms_AAVS.rds")
+
+# Loading the residual variance values
+variance_AAVS <- base::readRDS(file = "Models/variance_AAVS.rds")
+
+# Probability of direction (pd)
+pd_AAVS <- bayestestR::p_direction(model_AAVS) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_AAVS <- tidy(model_AAVS) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_AAVS, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_AAVS)
+```
+
+
+## Model Tables
+```{r}
+summaryTable_articRateAAVS_fixed <- base::merge(
+  
+  modelSummary_articRate %>%
+    dplyr::filter(effect == "fixed") %>%
+    dplyr::select(term,
+                  articRate_estimate = estimate,
+                  articRate_l_95_CI = l_95_CI,
+                  articRate_u_95_CI = u_95_CI,
+                  articRate_pd = pd,
+                  articRate_robust = robust) %>%
+    dplyr::mutate(term = as.factor(term)) %>%
+      dplyr::mutate_at(vars(contains('estimate')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('CI')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('pd')), ~ weights::rd(., digits = 2)),
+  
+  modelSummary_AAVS %>%
+    dplyr::filter(effect == "fixed") %>%
+    dplyr::select(term,
+                  AAVS_estimate = estimate,
+                  AAVS_l_95_CI = l_95_CI,
+                  AAVS_u_95_CI = u_95_CI,
+                  AAVS_pd = pd,
+                  AAVS_robust = robust) %>%
+    dplyr::mutate(term = as.factor(term)) %>%
+    dplyr::mutate_at(vars(contains('estimate')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('CI')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('pd')), ~ weights::rd(., digits = 2)),
+  
+  all = T) %>%
+
+  
+  # Making the terms prettier
+  dplyr::mutate(
+    articRate_CI_95 = paste0(
+      articRate_l_95_CI, " – ", articRate_u_95_CI),
+    AAVS_CI_95 = paste0(
+      AAVS_l_95_CI, " – ", AAVS_u_95_CI),
+    
+    terms = factor(
+      term,
+      levels = c(
+        "(Intercept)",
+        "groupPD",
+        "sexFemale",
+        "age",
+        "artic_rate",
+        "time_pointsensors",
+        "time_pointsensors:groupPD",
+        "time_pointafter",
+        "time_pointafter:groupPD"
+      ),
+      labels = c(
+        "Intercept (Control × Before Sensors)",
+        "PwPD",
+        "Female",
+        "Age",
+        "Articulation Rate",
+        "Control × With Sensors",
+        "PwPD × With Sensors",
+        "Control × After Sensors",
+        "PwPD × After Sensors"
+      ),
+    )) %>% 
+  dplyr::relocate(terms, .after = term) %>%
+  arrange(terms) %>%
+  dplyr::mutate(effects = "Fixed Effects",
+                articRate_CI_95 = ifelse(articRate_CI_95 == "NA – NA", "", articRate_CI_95))
+
+summaryTable_articRateAAVS_random <- data.frame(
+  term = c(
+    "σ^2",
+    "N_SpeakerID",
+    "N_Phrase",
+    "Observations",
+    "Bayesian R2"),
+  terms = c(
+    md("σ<sup>2</sup>"),
+    md("N<sub>SpeakerID</sub>"),
+    md("N<sub>SpeakerID/Phrase</sub>"),
+    "Observations",
+    md("Bayesian R<sup>2</sup>")
+    ),
+  articRate = c(
+    weights::rd(variance_articRate$var.residual, 3),
+    summary(model_articRate)[["ngrps"]][["speaker_id"]],
+    summary(model_articRate)[["ngrps"]][["speaker_id:phrase"]],
+    summary(model_articRate)[["nobs"]],
+    weights::rd(bayes_R2(model_articRate, probs = c(0.025, 0.975))[,"Estimate"], 3) 
+  ),
+  AAVS = c(
+    weights::rd(variance_AAVS$var.residual, 3),
+    summary(model_AAVS)[["ngrps"]][["speaker_id"]],
+    "",
+    summary(model_AAVS)[["nobs"]],
+    weights::rd(bayes_R2(model_AAVS, probs = c(0.025, 0.975))[,"Estimate"], 3) 
+  )
+) %>%
+  dplyr::mutate(effects = case_when(
+    term == "Observations" ~ "Summary",
+    term == "Bayesian R2" ~ "Summary",
+    TRUE ~ "Random Effects"
+  )) %>%
+  dplyr::rename(articRate_estimate = articRate,
+                AAVS_estimate = AAVS)
+
+summaryTable_articRateAAVS <-
+  dplyr::bind_rows(summaryTable_articRateAAVS_fixed,
+        summaryTable_articRateAAVS_random)
+
+
+summaryTable_articRateAAVS %>%
+  dplyr::select(!c(term,
+                articRate_l_95_CI, articRate_u_95_CI,
+                AAVS_l_95_CI, AAVS_u_95_CI)) %>%
+  group_by(effects) %>%
+  gt::gt() |>
+  
+  # Crating the spanners
+  gt::tab_spanner(
+    columns = contains("articRate"),
+    label = "Articulation Rate (syl/s)"
+  ) |>
+  gt::tab_spanner(
+    columns = contains("AAVS"),
+    label = md("AAVS (log of mel<sup>2</sup>)")
+  ) |>
+  
+  # Formatting column labels
+  gt::cols_label(
+    terms = "Predictors",
+    articRate_estimate = "Estimates",
+    AAVS_estimate = "Estimates",
+    articRate_CI_95 = "CI (95%)",
+    AAVS_CI_95 = "CI (95%)",
+    articRate_pd = "pd",
+    AAVS_pd = "pd",
+  ) %>%
+  
+  # Formating row names
+  gt::fmt_markdown(columns = "terms") %>%
+  
+  # Aligning columns
+  gt::cols_align(align = "right",
+                 columns = everything()) |>
+  
+  # Bolding for robust effects
+  ## Intelligibility
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = c(articRate_estimate,
+                                           articRate_CI_95,
+                                           articRate_pd),
+                               rows = articRate_robust == "robust")
+  ) |> 
+  ## Articulatory precision
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = c(AAVS_estimate,
+                                           AAVS_CI_95,
+                                           AAVS_pd),
+                               rows = AAVS_robust == "robust")
+  ) |> 
+  
+  # Subbing NA for ""
+  gt::sub_missing(columns = everything(),
+                  rows = everything(),
+                  missing_text = "") %>% 
+  
+  # Hiding unneeded columns
+  gt::cols_hide(
+    columns = c(articRate_robust,
+                AAVS_robust)
+  ) |>
+  
+  # Saving the table
+  gt::gtsave(filename = "Tables/SupTbl_articRateAAVS.html")
+
+```
+
+
+
+# Table 3 - M1 (s and sh)
+## M1s
+```{r}
+# Loading the models
+model_M1s <- base::readRDS(file = "Models/brms_M1s.rds")
+
+# Loading the residual variance values
+variance_M1s <- base::readRDS(file = "Models/variance_M1s.rds")
+
+# Probability of direction (pd)
+pd_M1s <- bayestestR::p_direction(model_M1s) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_M1s <- tidy(model_M1s) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_M1s, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_M1s)
+```
+
+## M1sh
+```{r}
+# Loading the models
+model_M1sh <- base::readRDS(file = "Models/brms_M1sh.rds")
+
+# Loading the residual variance values
+variance_M1sh <- base::readRDS(file = "Models/variance_M1sh.rds")
+
+# Probability of direction (pd)
+pd_M1sh <- bayestestR::p_direction(model_M1sh) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_M1sh <- tidy(model_M1sh) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_M1sh, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_M1sh)
+```
+
+## Model Tables
+```{r}
+
+summaryTable_M1sM1sh_fixed <- base::merge(
+  
+  modelSummary_M1s %>%
+    dplyr::filter(effect == "fixed") %>%
+    dplyr::select(term,
+                  M1s_estimate = estimate,
+                  M1s_l_95_CI = l_95_CI,
+                  M1s_u_95_CI = u_95_CI,
+                  M1s_pd = pd,
+                  M1s_robust = robust) %>%
+    dplyr::mutate(term = as.factor(term)),
+  
+  modelSummary_M1sh %>%
+    dplyr::filter(effect == "fixed") %>%
+    dplyr::select(term,
+                  M1sh_estimate = estimate,
+                  M1sh_l_95_CI = l_95_CI,
+                  M1sh_u_95_CI = u_95_CI,
+                  M1sh_pd = pd,
+                  M1sh_robust = robust) %>%
+    dplyr::mutate(term = as.factor(term))) %>%
+  
+  # Rounding the variables
+  dplyr::mutate_at(vars(contains('estimate')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('CI')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('pd')), ~ weights::rd(., digits = 2)) %>%
+  
+  # Making the terms prettier
+  dplyr::mutate(
+    M1s_CI_95 = paste0(
+      M1s_l_95_CI, " – ", M1s_u_95_CI),
+    M1sh_CI_95 = paste0(
+      M1sh_l_95_CI, " – ", M1sh_u_95_CI),
+    
+    terms = factor(
+      term,
+      levels = c(
+        "(Intercept)",
+        "groupPD",
+        "sexFemale",
+        "age",
+        "artic_rate",
+        "time_pointsensors",
+        "time_pointsensors:groupPD",
+        "time_pointafter",
+        "time_pointafter:groupPD"
+      ),
+      labels = c(
+        "Intercept (Control × Before Sensors)",
+        "PwPD",
+        "Female",
+        "Age",
+        "Articulation Rate",
+        "Control × With Sensors",
+        "PwPD × With Sensors",
+        "Control × After Sensors",
+        "PwPD × After Sensors"
+      ),
+    )) %>% 
+  dplyr::relocate(terms, .after = term) %>%
+  arrange(terms) %>%
+  dplyr::mutate(effects = "Fixed Effects")
+
+summaryTable_M1sM1sh_random <- data.frame(
+  term = c(
+    "σ^2",
+    "N_SpeakerID",
+    "Observations",
+    "Bayesian R2"),
+  terms = c(
+    md("σ<sup>2</sup>"),
+    md("N<sub>SpeakerID</sub>"),
+    "Observations",
+    md("Bayesian R<sup>2</sup>")
+    ),
+  M1s = c(
+    weights::rd(variance_M1s$var.residual, 3),
+    summary(model_M1s)[["ngrps"]][["speaker_id"]],
+    summary(model_M1s)[["nobs"]],
+    weights::rd(bayes_R2(model_M1s, probs = c(0.025, 0.975))[,"Estimate"], 3) 
+  ),
+  M1sh = c(
+    weights::rd(variance_M1sh$var.residual, 3),
+    summary(model_M1sh)[["ngrps"]][["speaker_id"]],
+    summary(model_M1sh)[["nobs"]],
+    weights::rd(bayes_R2(model_M1sh, probs = c(0.025, 0.975))[,"Estimate"], 3) 
+  )
+) %>%
+  dplyr::mutate(effects = case_when(
+    term == "Observations" ~ "Summary",
+    term == "Bayesian R2" ~ "Summary",
+    TRUE ~ "Random Effects"
+  )) %>%
+  dplyr::rename(M1s_estimate = M1s,
+                M1sh_estimate = M1sh)
+
+summaryTable_M1sM1sh <-
+  dplyr::bind_rows(summaryTable_M1sM1sh_fixed,
+        summaryTable_M1sM1sh_random)
+
+
+summaryTable_M1sM1sh %>%
+  dplyr::select(!c(term,
+                M1s_l_95_CI, M1s_u_95_CI,
+                M1sh_l_95_CI, M1sh_u_95_CI)) %>%
+  group_by(effects) %>%
+  gt::gt() |>
+  
+  # Crating the spanners
+  gt::tab_spanner(
+    columns = contains("M1s_"),
+    label = "M1 for /s/ (kHz)"
+  ) |>
+  gt::tab_spanner(
+    columns = contains("M1sh_"),
+    label = "M1 for /ʃ/ (kHz)"
+  ) |>
+  
+  # Formatting column labels
+  gt::cols_label(
+    terms = "Predictors",
+    M1s_estimate = "Estimates",
+    M1sh_estimate = "Estimates",
+    M1s_CI_95 = "CI (95%)",
+    M1sh_CI_95 = "CI (95%)",
+    M1s_pd = "pd",
+    M1sh_pd = "pd",
+  ) %>%
+  
+  # Formating row names
+  gt::fmt_markdown(columns = "terms") %>%
+  
+  # Aligning columns
+  gt::cols_align(align = "right",
+                 columns = everything()) |>
+  
+  # Bolding for robust effects
+  ## Intelligibility
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = c(M1s_estimate,
+                                           M1s_CI_95,
+                                           M1s_pd),
+                               rows = M1s_robust == "robust")
+  ) |> 
+  ## Articulatory precision
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = c(M1sh_estimate,
+                                           M1sh_CI_95,
+                                           M1sh_pd),
+                               rows = M1sh_robust == "robust")
+  ) |> 
+  
+  # Subbing NA for ""
+  gt::sub_missing(columns = everything(),
+                  rows = everything(),
+                  missing_text = "") %>% 
+  
+  # Hiding unneeded columns
+  gt::cols_hide(
+    columns = c(M1s_robust,
+                M1sh_robust)
+  ) |>
+  
+  # Saving the table
+  gt::gtsave(filename = "Tables/SupTbl_M1.html")
+
+```
+
+
+
+
+# Table 4 - M2 (s and sh)
+## M2s
+```{r}
+# Loading the models
+model_M2s <- base::readRDS(file = "Models/brms_M2s.rds")
+
+# Loading the residual variance values
+variance_M2s <- base::readRDS(file = "Models/variance_M2s.rds")
+
+# Probability of direction (pd)
+pd_M2s <- bayestestR::p_direction(model_M2s) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_M2s <- tidy(model_M2s) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_M2s, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_M2s)
+```
+
+## M2sh
+```{r}
+# Loading the models
+model_M2sh <- base::readRDS(file = "Models/brms_M2sh.rds")
+
+# Loading the residual variance values
+variance_M2sh <- base::readRDS(file = "Models/variance_M2sh.rds")
+
+# Probability of direction (pd)
+pd_M2sh <- bayestestR::p_direction(model_M2sh) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_M2sh <- tidy(model_M2sh) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_M2sh, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_M2sh)
+```
+
+## Model Tables
+```{r}
+
+summaryTable_M2sM2sh_fixed <- base::merge(
+  
+  modelSummary_M2s %>%
+    dplyr::filter(effect == "fixed") %>%
+    dplyr::select(term,
+                  M2s_estimate = estimate,
+                  M2s_l_95_CI = l_95_CI,
+                  M2s_u_95_CI = u_95_CI,
+                  M2s_pd = pd,
+                  M2s_robust = robust) %>%
+    dplyr::mutate(term = as.factor(term)),
+  
+  modelSummary_M2sh %>%
+    dplyr::filter(effect == "fixed") %>%
+    dplyr::select(term,
+                  M2sh_estimate = estimate,
+                  M2sh_l_95_CI = l_95_CI,
+                  M2sh_u_95_CI = u_95_CI,
+                  M2sh_pd = pd,
+                  M2sh_robust = robust) %>%
+    dplyr::mutate(term = as.factor(term))) %>%
+  
+  # Rounding the variables
+  dplyr::mutate_at(vars(contains('estimate')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('CI')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('pd')), ~ weights::rd(., digits = 2)) %>%
+  
+  # Making the terms prettier
+  dplyr::mutate(
+    M2s_CI_95 = paste0(
+      M2s_l_95_CI, " – ", M2s_u_95_CI),
+    M2sh_CI_95 = paste0(
+      M2sh_l_95_CI, " – ", M2sh_u_95_CI),
+    
+    terms = factor(
+      term,
+      levels = c(
+        "(Intercept)",
+        "groupPD",
+        "sexFemale",
+        "age",
+        "artic_rate",
+        "time_pointsensors",
+        "time_pointsensors:groupPD",
+        "time_pointafter",
+        "time_pointafter:groupPD"
+      ),
+      labels = c(
+        "Intercept (Control × Before Sensors)",
+        "PwPD",
+        "Female",
+        "Age",
+        "Articulation Rate",
+        "Control × With Sensors",
+        "PwPD × With Sensors",
+        "Control × After Sensors",
+        "PwPD × After Sensors"
+      ),
+    )) %>% 
+  dplyr::relocate(terms, .after = term) %>%
+  arrange(terms) %>%
+  dplyr::mutate(effects = "Fixed Effects")
+
+summaryTable_M2sM2sh_random <- data.frame(
+  term = c(
+    "σ^2",
+    "N_SpeakerID",
+    "Observations",
+    "Bayesian R2"),
+  terms = c(
+    md("σ<sup>2</sup>"),
+    md("N<sub>SpeakerID</sub>"),
+    "Observations",
+    md("Bayesian R<sup>2</sup>")
+    ),
+  M2s = c(
+    weights::rd(variance_M2s$var.residual, 3),
+    summary(model_M2s)[["ngrps"]][["speaker_id"]],
+    summary(model_M2s)[["nobs"]],
+    weights::rd(bayes_R2(model_M2s, probs = c(0.025, 0.975))[,"Estimate"], 3) 
+  ),
+  M2sh = c(
+    weights::rd(variance_M2sh$var.residual, 3),
+    summary(model_M2sh)[["ngrps"]][["speaker_id"]],
+    summary(model_M2sh)[["nobs"]],
+    weights::rd(bayes_R2(model_M2sh, probs = c(0.025, 0.975))[,"Estimate"], 3) 
+  )
+) %>%
+  dplyr::mutate(effects = case_when(
+    term == "Observations" ~ "Summary",
+    term == "Bayesian R2" ~ "Summary",
+    TRUE ~ "Random Effects"
+  )) %>%
+  dplyr::rename(M2s_estimate = M2s,
+                M2sh_estimate = M2sh)
+
+summaryTable_M2sM2sh <-
+  dplyr::bind_rows(summaryTable_M2sM2sh_fixed,
+        summaryTable_M2sM2sh_random)
+
+
+summaryTable_M2sM2sh %>%
+  dplyr::select(!c(term,
+                M2s_l_95_CI, M2s_u_95_CI,
+                M2sh_l_95_CI, M2sh_u_95_CI)) %>%
+  group_by(effects) %>%
+  gt::gt() |>
+  
+  # Crating the spanners
+  gt::tab_spanner(
+    columns = contains("M2s_"),
+    label = "M2 for /s/ (kHz)"
+  ) |>
+  gt::tab_spanner(
+    columns = contains("M2sh_"),
+    label = "M2 for /ʃ/ (kHz)"
+  ) |>
+  
+  # Formatting column labels
+  gt::cols_label(
+    terms = "Predictors",
+    M2s_estimate = "Estimates",
+    M2sh_estimate = "Estimates",
+    M2s_CI_95 = "CI (95%)",
+    M2sh_CI_95 = "CI (95%)",
+    M2s_pd = "pd",
+    M2sh_pd = "pd",
+  ) %>%
+  
+  # Formating row names
+  gt::fmt_markdown(columns = "terms") %>%
+  
+  # Aligning columns
+  gt::cols_align(align = "right",
+                 columns = everything()) |>
+  
+  # Bolding for robust effects
+  ## Intelligibility
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = c(M2s_estimate,
+                                           M2s_CI_95,
+                                           M2s_pd),
+                               rows = M2s_robust == "robust")
+  ) |> 
+  ## Articulatory precision
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = c(M2sh_estimate,
+                                           M2sh_CI_95,
+                                           M2sh_pd),
+                               rows = M2sh_robust == "robust")
+  ) |> 
+  
+  # Subbing NA for ""
+  gt::sub_missing(columns = everything(),
+                  rows = everything(),
+                  missing_text = "") %>% 
+  
+  # Hiding unneeded columns
+  gt::cols_hide(
+    columns = c(M2s_robust,
+                M2sh_robust)
+  ) |>
+  
+  # Saving the table
+  gt::gtsave(filename = "Tables/SupTbl_M2.html")
+
+```
+
+# Table 5 - Perceptual Measures
+## Intelligibility
+```{r}
+# Loading the models
+model_Int <- base::readRDS(file = "Models/brms_Int.rds")
+
+# Loading the residual variance values
+variance_Int <- base::readRDS(file = "Models/variance_Int.rds")
+
+# Probability of direction (pd)
+pd_Int <- bayestestR::p_direction(model_Int) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_Int <- tidy(model_Int) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_Int, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_Int)
+```
+
+## Naturalness
+```{r}
+# Loading the models
+model_Nat <- base::readRDS(file = "Models/brms_Nat.rds")
+
+# Loading the residual variance values
+variance_Nat <- base::readRDS(file = "Models/variance_Nat.rds")
+
+# Probability of direction (pd)
+pd_Nat <- bayestestR::p_direction(model_Nat) %>%
+  dplyr::rename(term = Parameter,
+                effect = Effects,
+                component = Component) %>%
+  dplyr::mutate(
+    component = ifelse(component == "conditional", "cond", component),
+    term = gsub(pattern = "b_", replacement = "", term),
+    term = ifelse(term == "Intercept", "(Intercept)", term))
+
+# Model results
+modelSummary_Nat <- tidy(model_Nat) %>%
+  dplyr::rename(l_95_CI = conf.low,
+                u_95_CI = conf.high) %>%
+  dplyr::mutate(order = row_number()) %>%
+  base::merge(.,pd_Nat, all = T) %>%
+  dplyr::arrange(order) %>%
+  dplyr::select(!order) %>%
+  dplyr::mutate(
+    estimate_natScale = plogis(estimate),
+    l_95_CI_natScale = plogis(l_95_CI),
+    u_95_CI_natScale = plogis(u_95_CI),
+    robust = case_when(
+      as.integer(!(l_95_CI <= 0 & u_95_CI > 0)) == 1 & pd > .95 ~ "robust",
+      TRUE ~ "not robust"
+    )
+  )
+
+rm(pd_Nat)
+```
+
+
+## Model Tables
+```{r}
+
+summaryTable_IntNat_fixed <- base::merge(
+  
+  modelSummary_Int %>%
+    dplyr::filter(effect == "fixed") %>%
+    dplyr::select(term,
+                  Int_estimate = estimate,
+                  Int_l_95_CI = l_95_CI,
+                  Int_u_95_CI = u_95_CI,
+                  Int_pd = pd,
+                  Int_robust = robust) %>%
+    dplyr::mutate(term = as.factor(term)),
+  
+  modelSummary_Nat %>%
+    dplyr::filter(effect == "fixed") %>%
+    dplyr::select(term,
+                  Nat_estimate = estimate,
+                  Nat_l_95_CI = l_95_CI,
+                  Nat_u_95_CI = u_95_CI,
+                  Nat_pd = pd,
+                  Nat_robust = robust) %>%
+    dplyr::mutate(term = as.factor(term))) %>%
+  
+  # Rounding the variables
+  dplyr::mutate_at(vars(contains('estimate')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('CI')), ~ weights::rd(., digits = 2)) %>%
+  dplyr::mutate_at(vars(contains('pd')), ~ weights::rd(., digits = 2)) %>%
+  
+  # Making the terms prettier
+  dplyr::mutate(
+    Int_CI_95 = paste0(
+      Int_l_95_CI, " – ", Int_u_95_CI),
+    Nat_CI_95 = paste0(
+      Nat_l_95_CI, " – ", Nat_u_95_CI),
+    
+    terms = factor(
+      term,
+      levels = c(
+        "(Intercept)",
+        "groupPD",
+        "sexFemale",
+        "age",
+        "artic_rate",
+        "time_pointsensors",
+        "time_pointsensors:groupPD",
+        "time_pointafter",
+        "time_pointafter:groupPD",
+        "trial_number"
+      ),
+      labels = c(
+        "Intercept (Control × Before Sensors)",
+        "PwPD",
+        "Female",
+        "Age",
+        "Articulation Rate",
+        "Control × With Sensors",
+        "PwPD × With Sensors",
+        "Control × After Sensors",
+        "PwPD × After Sensors",
+        "Trial Number"
+      ),
+    )) %>% 
+  dplyr::relocate(terms, .after = term) %>%
+  arrange(terms) %>%
+  dplyr::mutate(effects = "Fixed Effects")
+
+summaryTable_IntNat_random <- data.frame(
+  term = c(
+    "σ^2",
+    "N_SpeakerID",
+    "N_SpeakerID/passage",
+    "N_ListenerID",
+    "Observations",
+    "Bayesian R2"),
+  terms = c(
+    md("σ<sup>2</sup>"),
+    md("N<sub>SpeakerID</sub>"),
+    md("N<sub>SpeakerID/Passage</sub>"),
+    md("N<sub>ListenerID</sub>"),
+    "Observations",
+    md("Bayesian R<sup>2</sup>")
+    ),
+  Int = c(
+    weights::rd(variance_Int$var.residual, 3),
+    summary(model_Int)[["ngrps"]][["speaker_id"]],
+    summary(model_Int)[["ngrps"]][["speaker_id:cp_section"]],
+    summary(model_Int)[["ngrps"]][["listener_id"]],
+    summary(model_Int)[["nobs"]],
+    weights::rd(bayes_R2(model_Int, probs = c(0.025, 0.975))[,"Estimate"], 3) 
+  ),
+  Nat = c(
+    weights::rd(variance_Nat$var.residual, 3),
+    summary(model_Nat)[["ngrps"]][["speaker_id"]],
+    summary(model_Nat)[["ngrps"]][["speaker_id:cp_section"]],
+    summary(model_Nat)[["ngrps"]][["listener_id"]],
+    summary(model_Nat)[["nobs"]],
+    weights::rd(bayes_R2(model_Nat, probs = c(0.025, 0.975))[,"Estimate"], 3) 
+  )
+) %>%
+  dplyr::mutate(effects = case_when(
+    term == "Observations" ~ "Summary",
+    term == "Bayesian R2" ~ "Summary",
+    TRUE ~ "Random Effects"
+  )) %>%
+  dplyr::rename(Int_estimate = Int,
+                Nat_estimate = Nat)
+
+summaryTable_IntNat <-
+  dplyr::bind_rows(summaryTable_IntNat_fixed,
+        summaryTable_IntNat_random)
+
+
+summaryTable_IntNat %>%
+  dplyr::select(!c(term,
+                Int_l_95_CI, Int_u_95_CI,
+                Nat_l_95_CI, Nat_u_95_CI)) %>%
+  group_by(effects) %>%
+  gt::gt() |>
+  
+  # Crating the spanners
+  gt::tab_spanner(
+    columns = contains("Int"),
+    label = "Intelligibility (logit scale)"
+  ) |>
+  gt::tab_spanner(
+    columns = contains("Nat"),
+    label = "Naturalness (logit scale)"
+  ) |>
+  
+  # Formatting column labels
+  gt::cols_label(
+    terms = "Predictors",
+    Int_estimate = md("Estimates"),
+    Nat_estimate = md("Estimates"),
+    Int_CI_95 = "CI (95%)",
+    Nat_CI_95 = "CI (95%)",
+    Int_pd = "pd",
+    Nat_pd = "pd",
+  ) %>%
+  
+  # Formating row names
+  gt::fmt_markdown(columns = "terms") %>%
+  
+  # Aligning columns
+  gt::cols_align(align = "right",
+                 columns = everything()) |>
+  
+  # Bolding for robust effects
+  ## Intelligibility
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = c(Int_estimate,
+                                           Int_CI_95,
+                                           Int_pd),
+                               rows = Int_robust == "robust")
+  ) |> 
+  ## Articulatory precision
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = c(Nat_estimate,
+                                           Nat_CI_95,
+                                           Nat_pd),
+                               rows = Nat_robust == "robust")
+  ) |> 
+  
+  # Subbing NA for ""
+  gt::sub_missing(columns = everything(),
+                  rows = everything(),
+                  missing_text = "") %>% 
+  
+  # Hiding unneeded columns
+  gt::cols_hide(
+    columns = c(Int_robust,
+                Nat_robust)
+  ) |>
+  
+  # Saving the table
+  gt::gtsave(filename = "Tables/SupTbl_IntNat.html")
+
+```
+
+
+# Table S6 - Pairwise Comparisons
+```{r}
+workingData_articRate <- base::readRDS(file = "workingData/data_articRate.RDS")
+workingData_AAVS <- base::readRDS(file = "workingData/data_AAVS.RDS")
+workingData_M1s <- base::readRDS(file = "workingData/data_M1s.RDS")
+workingData_M1sh <- base::readRDS(file = "workingData/data_M1sh.RDS")
+workingData_M2s <- base::readRDS(file = "workingData/data_M2s.RDS")
+workingData_M2sh <- base::readRDS(file = "workingData/data_M2sh.RDS")
+workingData_Int <- base::readRDS(file = "workingData/data_Int.RDS")
+workingData_Nat <- base::readRDS(file = "workingData/data_Nat.RDS")
+
+pairwiseData <- dplyr::bind_rows(
+  workingData_articRate[["pairwise"]],
+  workingData_AAVS[["pairwise"]],
+  workingData_M1s[["pairwise"]],
+  workingData_M1sh[["pairwise"]],
+  workingData_M2s[["pairwise"]],
+  workingData_M2sh[["pairwise"]],
+  workingData_Int[["pairwise"]],
+  workingData_Nat[["pairwise"]],
+)
+
+pairwiseContrasts <- pairwiseData %>%
+  dplyr::mutate(
+    group = case_when(
+      group == "PwPD -\nControl" ~ "PwPD - Control",
+      TRUE ~ group
+    ),
+    RQ = case_when(
+      contrast == "sensors - before" ~ "RQ1",
+      contrast == "after - before" ~ "RQ2"
+    ),
+    measure = factor(
+      measure,
+      levels = c("articRate", "AAVS", "M1s", "M1sh", "M2s", "M2sh", "Int", "Nat"),
+      labels = c(
+        "Articulation Rate (syl/s)",
+        "Articulatory Acoustic Vowel Space (mel²)",
+        "M1 for /s/ (kHz)",
+        "M1 for /ʃ/ (kHz)",
+        "M2 for /s/ (kHz)",
+        "M2 for /ʃ/ (kHz)",
+        "Intelligibility (VAS)",
+        "Naturalness (VAS)"
+      )
+    ),
+    #CI95 = paste0(weights::rd(l_95_HPD, digits = 2), " – ", weights::rd(u_95_HPD, digits = 2)),
+    l_95_HPD = weights::rd(l_95_HPD, digits = 2),
+    u_95_HPD = weights::rd(u_95_HPD, digits = 2),
+    pd = paste0(weights::rd(pd*100, digits = 0),"%")) %>%
+  dplyr::relocate(RQ, .before = contrast) |>
+  dplyr::relocate(measure, .after = RQ) %>%
+  arrange(measure) %>%
+  arrange(contrast)
+
+pairwiseContrasts %>%
+  dplyr::select(RQ, measure, group, estimate, l_95_HPD, u_95_HPD, pd, robust) %>%
+  dplyr::mutate(estimate = weights::rd(estimate)) %>%
+  tidyr::pivot_wider(names_from = RQ,
+                     values_from = estimate:robust) %>%
+  dplyr::relocate(c(estimate_RQ1, l_95_HPD_RQ1, u_95_HPD_RQ1, pd_RQ1, robust_RQ1), .after = group) %>%
+  group_by(measure) %>%
+  gt::gt() |>
+  
+  # Add bolding for significant contrasts
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = gt::contains("_RQ1"), rows = robust_RQ1 == "robust")
+  ) |>
+  gt::tab_style(
+    style = list(gt::cell_text(weight = "bold")),
+    locations = gt::cells_body(columns = gt::contains("_RQ2"), rows = robust_RQ2 == "robust")
+  ) |>
+  gt::tab_spanner(
+    label = "95% HPD",
+    id = "HPD_RQ1",
+    columns = gt::contains("HPD_RQ1")
+  ) |>
+  gt::tab_spanner(
+    label = "95% HPD",
+    id = "HPD_RQ2",
+    columns = gt::contains("HPD_RQ2")
+  ) |> 
+  gt::tab_spanner(label = md("**Research Question 1**<br>Sensor Effects<br>(With Sensors - Before Sensors)"),
+                  columns = gt::contains("_RQ1")) |>
+  gt::tab_spanner(label = md("**Research Question 2**<br>After-Sensor Effects<br>(After Sensors - Before Sensors)"),
+                  columns = gt::contains("_RQ2")) |>
+  gt::cols_label(
+    "measure" = "Measure",
+    "group" = "Group",
+    contains("estimate") ~ "Estimate",
+    contains("l_95_HPD") ~ "LL",
+    contains("u_95_HPD") ~ "UL",
+    contains("pd", ignore.case = F) ~ "pd"
+  ) |>
+  gt::cols_hide(contains("robust")) |>
+  
+  gt::cols_align(
+    align = "right",
+    columns = c("group","measure", contains("estimate"), contains("CI95"), contains("pd"))
+  ) |>
+  
+  gt::tab_footnote(
+    footnote = "Negative estimates indicate Before Sensors > With Sensors.",
+    locations = gt::cells_column_labels(columns = contains("estimate_RQ1"))
+  ) |>
+  
+  gt::tab_footnote(
+    footnote = "Negative estimates indicate Before Sensors > After Sensors.",
+    locations = gt::cells_column_labels(columns = contains("estimate_RQ2"))
+  ) |>
+  
+  gt::gtsave(filename = "Tables/Tbl_Pairwise Comparisons.html")
+  
+  
+
+
+```
+
