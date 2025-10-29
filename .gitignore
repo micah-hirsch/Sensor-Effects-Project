@@ -13,6 +13,9 @@ Data_Analysis/sensor_effects_analysis.html
 Raw_Perceptual_Data/
 Listener_demographics/
 Data_Analysis/Figures/
-
+Data_Analysis/Data/rawData
+Data_Analysis/Data/cleanData/formantData
+Data_Analysis/old
+Data_Analysis/Participant Information
 
 Data_Analysis/Tables/speaker_demo.html
